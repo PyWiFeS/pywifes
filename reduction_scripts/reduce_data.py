@@ -333,7 +333,7 @@ def main():
 
     # Option to reduce both blue and red arms simultaneously
     parser.add_argument(
-        "--reduce-both",
+        "--run-both",
         action="store_true",
         help="Optional: Reduce Red and Blue data simultaneously using multiprocessing.",
     )
@@ -479,7 +479,7 @@ def main():
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
         jobs = []
-        if args.reduce_both:
+        if args.run_both:
             # Try and reduce both arms at the same time
             for arm in obs_metadatas.keys():
                 p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
