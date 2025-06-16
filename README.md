@@ -30,6 +30,7 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
     ```sh
    pip install .
    ```
+    If you've installed the pipeline this way, you may need to unset your PYTHONPATH environment variable (or at least remove the path to the download directory from PYTHONPATH).
 4. Point the environment variable `PYWIFES_DIR` to your reference data directory. There are a few possible ways to do that:
     1. In your conda env, run the following:
     ```conda env config vars set PYWIFES_DIR=/your/path/to/pywifes/reference_data```
