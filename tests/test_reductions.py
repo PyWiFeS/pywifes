@@ -199,7 +199,7 @@ class TestReduction:
             # go into the tmp folder and run the pipeline
             os.chdir(str(sub_folder))
 
-            cmd = self.reduce_script + " ." + " --reduce-both"
+            cmd = self.reduce_script + " ." + " --run-both"
             with subprocess.Popen(args=cmd, shell=True, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, cwd='.',
                                   env={'PYWIFES_DIR': self.ref_data}, bufsize=1,
