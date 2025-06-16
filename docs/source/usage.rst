@@ -80,6 +80,7 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 - `--extract-and-splice`: Automatically locate sources in the output datacubes, extract spectra, and splice the datacubes and spectra, using parameters defined in the JSON5 file above. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky has already been subtracted.
 - `--no-processing`: Skip processing of files and use existing datacubes to extract or extract-and-splice.
+- `--run-both`: Process both blue and red arms simultaneously (with associated increase in resource usage).
 
 Extra Usabilities
 -----------------
