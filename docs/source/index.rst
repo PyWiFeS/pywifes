@@ -19,7 +19,7 @@ PyWiFeS is written in Python and is open-source, allowing users to modify and ex
 The original version of PyWiFeS was described by `Childress et al. (2014) <https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract>`_.
 A publication describing PyWiFeS version 2 is in preparation.
 
-Documentation for the current version of the pipeline has been deployed to `this ReadTheDocs site <https://pywifes-pipeline.readthedocs.io/en/latest/>`_.
+Documentation for the current version of the pipeline has been deployed here, to the site you are reading.
    
 For even more information, we refer the users to the `old PyWiFeS User Manual <https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation>`_. That manual explains the general structure of the original version of the pipeline, the steps of the data reduction as performed then, and technical details about the Python modules and functions, many of which are still applicable. **However, please follow the installation and usage instructions here, rather than the old instructions there.**
 
