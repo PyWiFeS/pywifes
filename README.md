@@ -9,7 +9,9 @@ The current version of PyWiFeS is compatible with data from both the automated 2
 The development of PyWiFeS version 2 was made possible by grant LE230100063 from the Australian Research Council.
 
 ## User Manual
-For more information, we refer the users to the [**PyWiFeS User Manual**](https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation). This manual explains the general structure of the pipeline, the steps of the data reduction, or technical details about the Python modules and functions.
+Documentation for the current version of the pipeline has been deployed to [this ReadTheDocs site](https://pywifes-pipeline.readthedocs.io/en/latest/).
+
+For even more information, we refer the users to the [old PyWiFeS User Manual](https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation). That manual explains the general structure of the original version of the pipeline, the steps of the data reduction as performed then, and technical details about the Python modules and functions, many of which are still applicable. **However, please follow the installation and usage instructions here, rather than the old instructions there.**
 
 ## Installation
 1. Download or clone this branch of the `pipeline` repository:
