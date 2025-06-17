@@ -18,7 +18,9 @@ To install PyWiFeS, follow these steps:
    .. code-block:: bash
    
       pip install .
-   
+
+If you've installed the pipeline this way, you may need to unset your `PYTHONPATH` environment variable (or at least remove the path to the download directory from `PYTHONPATH`).
+
 3. Set the `PYWIFES_DIR` environment variable to the reference data directory in your installation folder:
    
    .. code-block:: bash
