@@ -32,12 +32,12 @@ def _run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **
     zero_var : bool
         Whether to set the VAR extension of the output response file to zero.
         Default: True.
-    polydeg : int
-        Order of polynomial used in fitting wavelength profile of dome flat (in
-        log-flux).
     resp_min : float
         Minimum value allowed in final response function.
         Default: 0.0001.
+    plot : bool
+        Whether to output a diagnostic plot.
+        Default: False.
     save_prefix : str
         Prefix for the diagnostic plot.
         Default: 'flat_response'.
