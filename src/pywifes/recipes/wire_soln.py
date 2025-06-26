@@ -68,11 +68,11 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         wire_in_fn = gargs['super_wire_mef']
     else:
         wire_in_fn = os.path.join(
-            gargs['out_dir'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
+            gargs['out_dir_arm'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
         )
         try:
             wire_in_fn = os.path.join(
-                gargs['out_dir'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
+                gargs['out_dir_arm'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
             )
         except IndexError:
             raise FileNotFoundError("No wire spectra available to fit.")
@@ -93,10 +93,10 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         local_wires = get_associated_calib(metadata, fn, "wire")
         if local_wires:
             local_wire_fn = os.path.join(
-                gargs['out_dir'], "%s.p%s.fits" % (local_wires[0], prev_suffix)
+                gargs['out_dir_arm'], "%s.p%s.fits" % (local_wires[0], prev_suffix)
             )
             local_wire_out_fn = os.path.join(
-                gargs['out_dir'], "%s.wire.fits" % (local_wires[0])
+                gargs['out_dir_arm'], "%s.wire.fits" % (local_wires[0])
             )
             if gargs['skip_done'] and os.path.isfile(local_wire_out_fn) \
                     and os.path.getmtime(local_wire_fn) < os.path.getmtime(local_wire_out_fn):

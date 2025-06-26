@@ -1412,6 +1412,7 @@ def subtract_overscan(
     rdnoise=None,
     omaskfile=None,
     omask_threshold=500.0,
+    match_binning=None,
     interactive_plot=False,
     verbose=False,
     debug=False,
@@ -1441,6 +1442,8 @@ def subtract_overscan(
         The path to the maskfile defining the slice/interslice regions. Default is None.
     omask_threshold : float, optional
         Threshold above which to mask pixels from overscan fit. Threshold is per-row mean ADU relative to row with lowest mean. Default is 500.
+    match_binning : str, optional
+        If not None, will expand/contract binning to the specified 'x y' format.
     interactive_plot : bool, optional
         Whether to interrupt processing to provide interactive plot to user. Default is False.
     verbose : bool
@@ -1589,6 +1592,28 @@ def subtract_overscan(
         temp_data = subbed_data[:, ::-1]
         next_data = temp_data[::-1, :]
         subbed_data = next_data
+
+    # (3c) - if requested, ensure binning aligns with science data
+    if match_binning is not None and match_binning != orig_hdr["CCDSUM"]:
+        print(f"Adjusting binning of {os.path.basename(inimg)} from {orig_hdr['CCDSUM']} to {match_binning}")
+        out_bin = [int(b) for b in match_binning.split()]
+        if out_bin[0] < bin_x:
+            # Stretch the data in x
+            subbed_data = numpy.repeat(subbed_data, repeats=(bin_x // out_bin[0]), axis=1) / float(bin_x // out_bin[0])
+            bin_x = out_bin[0]
+        if out_bin[1] < bin_y:
+            # Stretch the data in y
+            subbed_data = numpy.repeat(subbed_data, repeats=(bin_y // out_bin[1]), axis=0) / float(bin_y // out_bin[1])
+            bin_y = out_bin[1]
+        elif out_bin[0] > bin_x or out_bin[1] > bin_y:
+            # Block-sum the data.
+            # Adapted from https://stackoverflow.com/a/37534242
+            S = [out_bin[1] // bin_y, out_bin[0] // bin_x]
+            m, n = numpy.array(subbed_data.shape) // S
+            subbed_data = subbed_data.reshape(m, S[0], n, S[1]).sum((1, 3))
+
+        ny, nx = subbed_data.shape
+        outfits[data_hdu].header.set("CCDSUM", match_binning)
 
     # (4) only modify data part of data_hdu for output
     detsize_str = "[%d:%d,%d:%d]" % (1, nx, 1, ny)
@@ -2757,8 +2782,8 @@ def interslice_cleanup(
     save_prefix : str, optional
         Prefix for plot (if requested). Default is 'cleanup\_'.
     method : str, optional
-        Method to fit interslice region. Options are "2D" (fit 2D Gaussian-smoothed shape 
-        to interslice segments), "1D" (use median value of each cosmic-ray-filtered 
+        Method to fit interslice region. Options are "2D" (fit 2D Gaussian-smoothed shape
+        to interslice segments), "1D" (use median value of each cosmic-ray-filtered
         interslice segment). Default is "2D".
     debug : bool, optional
         Whether to report the parameters used in this function call. Default is False.

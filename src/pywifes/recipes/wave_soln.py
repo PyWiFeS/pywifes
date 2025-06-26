@@ -110,7 +110,7 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
     else:
         try:
             wsol_in_fn = os.path.join(
-                gargs['out_dir'], "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
+                gargs['out_dir_arm'], "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
             )
         except IndexError:
             raise FileNotFoundError("No arc spectra available to fit.")
@@ -130,11 +130,11 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         if local_arcs:
             for i in range(numpy.min([2, numpy.size(local_arcs)])):
                 local_arc_fn = os.path.join(
-                    gargs['out_dir'], "%s.p%s.fits" % (local_arcs[i], prev_suffix)
+                    gargs['out_dir_arm'], "%s.p%s.fits" % (local_arcs[i], prev_suffix)
                 )
 
                 local_wsol_out_fn = os.path.join(
-                    gargs['out_dir'], "%s.wsol.fits" % (local_arcs[i])
+                    gargs['out_dir_arm'], "%s.wsol.fits" % (local_arcs[i])
                 )
 
                 if gargs['skip_done'] and os.path.isfile(local_wsol_out_fn) \

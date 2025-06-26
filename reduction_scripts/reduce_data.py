@@ -26,7 +26,7 @@ import pywifes.recipes as recipes
 
 
 def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir,
-                  working_dir, params_path, grism_key, just_calib, plot_dir,
+                  output_dir, params_path, grism_key, just_calib, plot_dir,
                   from_master, extra_skip_steps, return_dict, skip_done):
     # Reduces the data for an individual arm.
 
@@ -43,6 +43,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
         gargs['master_dir'] = master_dir
         gargs['from_master'] = from_master
         gargs['output_master_dir'] = output_master_dir
+        gargs['output_dir'] = output_dir
 
         # Determine the grism and observing mode used in the first image of science,
         # standard, or arc of the respective arm.
@@ -95,9 +96,8 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             proc_steps[arm] = [proc_steps[arm][i] for i in json_idx]
 
         # Create data products directory structure
-        gargs['working_dir'] = working_dir
-        gargs['out_dir'] = os.path.join(working_dir, f"data_products/intermediate/{arm}")
-        os.makedirs(gargs['out_dir'], exist_ok=True)
+        gargs['out_dir_arm'] = os.path.join(output_dir, f"intermediate/{arm}")
+        os.makedirs(gargs['out_dir_arm'], exist_ok=True)
 
         calib_prefix = f"wifes_{arm}"
 
@@ -157,7 +157,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
         # ------------------------------------------------------------------------
         # Run proccessing steps
         # ------------------------------------------------------------------------
-        flog_filename = os.path.join(gargs['working_dir'] + "/data_products", f"{arm}.log")
+        flog_filename = os.path.join(gargs['output_dir'], f"{arm}.log")
         print("")
         print(f"Starting processing of {arm} arm")
         print(f"See {flog_filename} for detailed output.")
@@ -271,6 +271,14 @@ def main():
     # The raw data directory is a required positional argument
     parser.add_argument("user_data_dir", type=str, help="Path to the raw data directory.")
 
+    # Option for specifying the path for the output files
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="./data_products",
+        help="Optional: Path to output folder.",
+    )
+
     # Option for specifying the path to the red parameters JSON file
     parser.add_argument(
         "--red-params",
@@ -291,7 +299,7 @@ def main():
     parser.add_argument(
         "--from-master",
         type=str,
-        const="./data_products/master_calib",
+        const="./master_calib",
         nargs="?",
         help="Optional: Path to the master calibrations directory. If not provided, the"
              " default path will be used: .",
@@ -376,7 +384,21 @@ def main():
 
     if not user_data_dir.endswith("/"):
         user_data_dir += "/"
-    print(f"Processing data in directory: {user_data_dir}")
+
+    # Validate and process the output_dir
+    output_dir = os.path.abspath(args.output_dir)
+    if not os.path.exists(output_dir):
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+        except PermissionError as e:
+            raise PermissionError(e)
+        except Exception as e:
+            print(f"ERROR: {e}")
+            raise
+
+    if not output_dir.endswith("/"):
+        output_dir += "/"
+    print(f"Processing data in directory: {user_data_dir}. Outputting to directory: {output_dir}")
 
     # Handling reduction parameters.
     params_path = {
@@ -419,16 +441,13 @@ def main():
     # Skip processing and only extract or extract-and-splice
     no_processing = args.no_processing
 
-    # Set paths
-    working_dir = os.getcwd()
-
     # Creates a directory for plot.
-    plot_dir = os.path.join(working_dir, "data_products/plots/")
+    plot_dir = os.path.join(output_dir, "plots/")
     os.makedirs(plot_dir, exist_ok=True)
 
     # Creates a temporary data directory containning all raw data for reduction.
     if not no_processing:
-        temp_data_dir = os.path.join(working_dir, "data_products/intermediate/raw_data_temp/")
+        temp_data_dir = os.path.join(output_dir, "intermediate/raw_data_temp/")
         os.makedirs(temp_data_dir, exist_ok=True)
 
         all_fits_names = get_file_names(user_data_dir, "*.fits*")
@@ -436,7 +455,7 @@ def main():
         copy_files(user_data_dir, temp_data_dir, all_fits_names)
 
         # Classify all raw data (red and blue arm)
-        mode_save_fn = os.path.join(working_dir, "data_products/coadd_mode.json5")
+        mode_save_fn = os.path.join(output_dir, "coadd_mode.json5")
         obs_metadatas = classify(temp_data_dir,
                                  greedy_stds=args.greedy_stds,
                                  coadd_mode=args.coadd_mode,
@@ -453,7 +472,7 @@ def main():
         # using master calibration files
         if from_master:
             master_dir = os.path.abspath(from_master)
-            output_master_dir = os.path.join(working_dir, "data_products/master_calib/")
+            output_master_dir = os.path.join(output_dir, "master_calib/")
             os.makedirs(output_master_dir, exist_ok=True)
             extra_skip_steps = [
                 "superbias",
@@ -468,7 +487,7 @@ def main():
 
         else:
             # Master calibration files firectory
-            master_dir = os.path.join(working_dir, "data_products/master_calib/")
+            master_dir = os.path.join(output_dir, "master_calib/")
             os.makedirs(master_dir, exist_ok=True)
             output_master_dir = ""
             # No extra skiped steps in principal.
@@ -482,7 +501,7 @@ def main():
         if args.run_both:
             # Try and reduce both arms at the same time
             for arm in obs_metadatas.keys():
-                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
+                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
                 jobs.append(p)
                 p.start()
 
@@ -491,7 +510,7 @@ def main():
         else:
             # Otherwise reduce them sequentially
             for arm in obs_metadatas.keys():
-                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
+                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
                 jobs.append(p)
                 p.start()
 
@@ -502,33 +521,32 @@ def main():
         shutil.rmtree(temp_data_dir)
 
     # ----------------------------------------------------------
-    # Move reduce cube to the data_products directory
+    # Move reduce cube to the output directory
     # ----------------------------------------------------------
     if just_calib:
         print("Only basics master calibration files have been produced.")
     else:
-        destination_dir = os.path.join(working_dir, "data_products")
         if not no_processing:
-            print(f"Moving reduced 3D cubes to {destination_dir}.")
+            print(f"Moving reduced 3D cubes to {output_dir}.")
 
             # Red
-            red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+            red_cubes_path = os.path.join(output_dir, "intermediate/red/")
             red_cubes_file_name = get_file_names(red_cubes_path, "*.cube.fits")
-            # Move reduced cubes to the data_product
-            move_files(red_cubes_path, destination_dir, red_cubes_file_name)
+            # Move reduced cubes to the output directory
+            move_files(red_cubes_path, output_dir, red_cubes_file_name)
 
             # Blue
-            blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
+            blue_cubes_path = os.path.join(output_dir, "intermediate/blue/")
             blue_cubes_file_name = get_file_names(blue_cubes_path, "*.cube.fits")
-            # Move reduced cubes to the data_product
-            move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
+            # Move reduced cubes to the output directory
+            move_files(blue_cubes_path, output_dir, blue_cubes_file_name)
 
         if extract or extract_and_splice:
             # ----------------------------------------------------------
-            # Find all reduced cubes in the destination directory (except spliced cubes)
+            # Find all reduced cubes in the output directory (omit spliced cubes)
             # ----------------------------------------------------------
-            reduced_cubes_paths = [os.path.join(destination_dir, fname) for fname
-                                   in get_file_names(destination_dir, "*.cube.fits")
+            reduced_cubes_paths = [os.path.join(output_dir, fname) for fname
+                                   in get_file_names(output_dir, "*.cube.fits")
                                    if "Splice" not in fname]
 
             # ----------------------------------------------------------
@@ -570,7 +588,7 @@ def main():
                     detect_extract_and_save(
                         blue_cube_path,
                         red_cube_path,
-                        destination_dir,
+                        output_dir,
                         ns=ns,
                         subns=subns,
                         plot_path=plot_path,
@@ -619,7 +637,7 @@ def main():
                                 spliced_cube_name = "Splice_" + blue_cube_name
                         else:
                             spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
-                        spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+                        spliced_cube_path = os.path.join(output_dir, spliced_cube_name)
 
                         # Splice cubes
                         if os.path.isfile(spliced_cube_path) and \
@@ -631,13 +649,13 @@ def main():
 
                         # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.det*'
                         pattern_blue = os.path.join(
-                            destination_dir, blue_cube_name.replace("cube", "spec.det*")
+                            output_dir, blue_cube_name.replace("cube", "spec.det*")
                         )
                         blue_specs = sorted(glob.glob(pattern_blue))
 
                         # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.det*'
                         pattern_red = os.path.join(
-                            destination_dir, red_cube_name.replace("cube", "spec.det*")
+                            output_dir, red_cube_name.replace("cube", "spec.det*")
                         )
                         red_specs = sorted(glob.glob(pattern_red))
 
@@ -656,7 +674,7 @@ def main():
                                     "Blue", "Splice"
                                 )
                             spliced_output.append(os.path.join(
-                                working_dir, destination_dir, spliced_spectrum_name
+                                output_dir, spliced_spectrum_name
                             ))
                             if os.path.isfile(spliced_output[-1]) and \
                                 os.path.getmtime(blue_spec) < os.path.getmtime(spliced_output[-1]) and \

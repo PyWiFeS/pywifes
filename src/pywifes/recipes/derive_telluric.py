@@ -78,11 +78,11 @@ def _run_derive_telluric(metadata, gargs, prev_suffix, curr_suffix, **args):
         return
 
     std_cube_list = [
-        os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
+        os.path.join(gargs['out_dir_arm'], f"{fn}.p{prev_suffix}.fits")
         for fn in std_obs_list
     ]
     extract_list = [
-        os.path.join(gargs['out_dir'], f"{fn}.x{prev_suffix}.dat")
+        os.path.join(gargs['out_dir_arm'], f"{fn}.x{prev_suffix}.dat")
         for fn in std_obs_list
     ]
     if gargs['skip_done'] and os.path.isfile(gargs['tellcorr_fn']) \

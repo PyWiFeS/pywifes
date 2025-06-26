@@ -49,8 +49,8 @@ def _run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix, **args):
     for basename in full_obs_list:
         input_filename = f"{basename}.p{prev_suffix}.fits"
         output_filename = f"{basename}.p{curr_suffix}.fits"
-        input_filepath = os.path.join(gargs['out_dir'], input_filename)
-        output_filepath = os.path.join(gargs['out_dir'], output_filename)
+        input_filepath = os.path.join(gargs['out_dir_arm'], input_filename)
+        output_filepath = os.path.join(gargs['out_dir_arm'], output_filename)
         if gargs['skip_done'] and os.path.isfile(output_filepath) \
                 and os.path.getmtime(input_filepath) < os.path.getmtime(output_filepath):
             continue

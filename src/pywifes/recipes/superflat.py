@@ -77,7 +77,7 @@ def _run_superflat(
     if source == "dome":
         out_fn = gargs['super_dflat_raw']
         flat_list = [
-            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+            os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["domeflat"]
         ]
         if gargs['skip_done'] and os.path.isfile(out_fn) \
@@ -91,7 +91,7 @@ def _run_superflat(
     elif source == "twi":
         out_fn = gargs['super_tflat_raw']
         flat_list = [
-            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+            os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["twiflat"]
         ]
         if gargs['skip_done'] and os.path.isfile(out_fn) \
@@ -104,7 +104,7 @@ def _run_superflat(
     elif source == "wire":
         out_fn = gargs['super_wire_raw']
         flat_list = [
-            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+            os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["wire"]
         ]
         if gargs['skip_done'] and os.path.isfile(out_fn) \
@@ -116,7 +116,7 @@ def _run_superflat(
     elif source == "arc":
         out_fn = gargs['super_arc_raw']
         flat_list = [
-            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+            os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["arc"]
         ]
         if gargs['skip_done'] and os.path.isfile(out_fn) \

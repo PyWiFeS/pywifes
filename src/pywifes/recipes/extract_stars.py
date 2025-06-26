@@ -70,8 +70,8 @@ def _run_extract_stars(metadata, gargs, prev_suffix, curr_suffix, stdtype="all",
     # For each std, extract spectrum as desired
     std_obs_list = get_primary_std_obs_list(metadata, stdtype=stdtype)
     for fn in std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
-        out_fn = os.path.join(gargs['out_dir'], f"{fn}.x{prev_suffix}.dat")
+        in_fn = os.path.join(gargs['out_dir_arm'], f"{fn}.p{prev_suffix}.fits")
+        out_fn = os.path.join(gargs['out_dir_arm'], f"{fn}.x{prev_suffix}.dat")
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue

@@ -18,6 +18,13 @@ The pipeline is designed to be user-friendly and easy to use. The main routine i
 User-Defined Reduction Parameters
 ---------------------------------
 
+**Specify an output directory**
+
+The default output directory is a `data_products` folder created in whatever directory the pipeline is launched from. To specify an alternative directory, use the `--output-dir` flag as follows:
+    .. code-block::bash
+
+        ./reduce_data.py /.../my_raw_data --output_dir /.../data_products_YYYYMMDD
+
 **Set reduction steps**
 
 To specify the reduction steps for blue and red data, users can provide the paths to the respective JSON or JSON5 files using the `--red-params` and `--blue-params` flags as follows:
