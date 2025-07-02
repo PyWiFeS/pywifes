@@ -7,7 +7,7 @@
         "nsources": 3,  // Maximum number of sources to extract (in order of decreasing brightness).
         "sigma_threshold": 3,  // Number of sigma a source must be above the background to be detected.
         "border_width": 2,  // Number of edge spaxels to omit when source-finding and defining colourbar range for output plots.
-        "det_fwhm": 2.0,  // Full-width at half maximum (in pixels) of the Gaussian convolution kernal used for source-finding.
+        "det_fwhm": 2.0,  // Full-width at half maximum (in arcsec) of the Gaussian convolution kernal used for source-finding.
         //
         // --- Extraction Parameters ---
         "extraction_method": "aperture",  // Method for extraction from datacube: Options: "aperture".

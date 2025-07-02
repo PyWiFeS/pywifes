@@ -23,7 +23,7 @@ User-Defined Reduction Parameters
 The default output directory is a `data_products` folder created in whatever directory the pipeline is launched from. To specify an alternative directory, use the `--output-dir` flag as follows:
     .. code-block::bash
 
-        ./reduce_data.py /.../my_raw_data --output_dir /.../data_products_YYYYMMDD
+        ./reduce_data.py /.../my_raw_data --output-dir /.../data_products_YYYYMMDD
 
 **Set reduction steps**
 
