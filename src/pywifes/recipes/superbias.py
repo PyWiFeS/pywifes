@@ -44,7 +44,7 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
     -------
     None
     """
-    bias_list = [os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+    bias_list = [os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
                  for x in metadata["bias"]
                  ]
     if not (gargs['skip_done'] and os.path.isfile(gargs['superbias_fn'])
@@ -76,10 +76,10 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
         if local_biases:
             local_bias_fn = get_associated_calib(metadata, fn, "bias")[0]
             local_superbias = os.path.join(
-                gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb")
+                gargs['out_dir_arm'], "%s.fits" % (local_bias_fn + ".lsb")
             )
             local_superbias_fit = os.path.join(
-                gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb_fit")
+                gargs['out_dir_arm'], "%s.fits" % (local_bias_fn + ".lsb_fit")
             )
             if gargs['skip_done'] and os.path.isfile(local_superbias) and os.path.isfile(local_superbias_fit) \
                     and os.path.getmtime(local_superbias) < os.path.getmtime(local_superbias_fit):
@@ -87,7 +87,7 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
             print(f"Calculating Local Superbias for {local_bias_fn}")
             # step 1 - coadd biases
             local_biases_filename = [
-                os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
+                os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (x, prev_suffix))
                 for x in local_biases
             ]
             pywifes.imcombine(

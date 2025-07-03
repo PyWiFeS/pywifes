@@ -32,8 +32,8 @@ def _run_flatfield(metadata, gargs, prev_suffix, curr_suffix):
     print(f"Primary science observation list: {sci_obs_list}")
     print(f"Primary standard observation list: {std_obs_list}")
     for fn in sci_obs_list + std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(gargs['flat_resp_fn']) < os.path.getmtime(out_fn):

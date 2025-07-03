@@ -50,8 +50,8 @@ def _run_cosmic_rays(
     sky_obs_list = get_sky_obs_list(metadata)
     std_obs_list = get_std_obs_list(metadata)
     for fn in sci_obs_list + sky_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
@@ -72,8 +72,8 @@ def _run_cosmic_rays(
         )
         if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
             # Also process extracted sky slitlets.
-            in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir_arm'], "%s.s%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir_arm'], "%s.s%s.fits" % (fn, curr_suffix))
             print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
             in_hdr = pyfits.getheader(in_fn)
             rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']
@@ -91,8 +91,8 @@ def _run_cosmic_rays(
             )
         gc.collect()
     for fn in std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
@@ -113,8 +113,8 @@ def _run_cosmic_rays(
         )
         if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
             # Also process extracted sky slitlets.
-            in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir_arm'], "%s.s%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir_arm'], "%s.s%s.fits" % (fn, curr_suffix))
             print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
             in_hdr = pyfits.getheader(in_fn)
             rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']

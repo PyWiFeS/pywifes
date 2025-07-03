@@ -33,8 +33,8 @@ def _run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
     """
     full_obs_list = get_full_obs_list(metadata)
     for fn in full_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
@@ -42,7 +42,7 @@ def _run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
         if local_biases:
             local_bias_fn = get_associated_calib(metadata, fn, "bias")[0]
             bias_fit_fn = os.path.join(
-                gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb_fit")
+                gargs['out_dir_arm'], "%s.fits" % (local_bias_fn + ".lsb_fit")
             )
             bias_type = "local"
         else:

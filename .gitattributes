@@ -1,0 +1,9 @@
+# Set the default behavior
+* text=auto eol=lf
+
+# Force pickle files to use LF and not convert to CRLF, even if default above is modified
+*.pkl text eol=lf
+
+# Denote all files that are truly binary and should not be modified.
+*.jpeg binary
+*.png binary

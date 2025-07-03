@@ -14,10 +14,13 @@ Documentation for the current version of the pipeline has been deployed to [this
 For even more information, we refer the users to the [old PyWiFeS User Manual](https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation). That manual explains the general structure of the original version of the pipeline, the steps of the data reduction as performed then, and technical details about the Python modules and functions, many of which are still applicable. **However, please follow the installation and usage instructions here, rather than the old instructions there.**
 
 ## Installation
-1. Download or clone this branch of the `pipeline` repository:
+
+### MacOS/Linux/Unix
+
+1. Download or clone the `main` branch of the `pipeline` repository:
     ```sh
-   git clone -b main https://github.com/PyWiFeS/pywifes.git
-   ```
+    git clone -b main https://github.com/PyWiFeS/pywifes.git
+    ```
 2. Set up a python environment (via conda, for example) with:
 
     -python >= 3.10
@@ -30,35 +33,79 @@ For even more information, we refer the users to the [old PyWiFeS User Manual](h
 
 3. From the pipeline root directory, run:
     ```sh
-   pip install .
-   ```
+    pip install .
+    ```
     If you've installed the pipeline this way, you may need to unset your `PYTHONPATH` environment variable (or at least remove the path to the download directory from `PYTHONPATH`).
 4. Point the environment variable `PYWIFES_DIR` to your reference data directory. There are a few possible ways to do that:
     1. In your conda env, run the following:
-    ```conda env config vars set PYWIFES_DIR=/your/path/to/pywifes/reference_data```
-    ```conda env config vars unset PYTHONPATH```
+
+    ```sh
+    conda env config vars set PYWIFES_DIR=/your/path/to/pywifes/reference_data
+
+    conda env config vars unset PYTHONPATH
+    ```
+
     Then deactivate and reactivate the conda env.
-    2. Add the following line to your `~/.bashrc` so it will run on login:
+    2. Add the following line to your environment configuration file (`~/.bashrc`, `~/.zshrc`, etc.) so it will run on login:
+
     ```sh
     export PYWIFES_DIR=/your/path/to/pywifes/reference_data
     ```
     3. Or run the command manually before 'Running the Pipeline'.
     4. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
-5.  If desired, set up an alias for the main reduction routine `reduce_data.py`: 
+5.  If desired, set up an alias for the main reduction routine `reduce_data.py`:
+
     ```sh
     alias pywifes-reduce='/.../pywifes/reduction_scripts/reduce_data.py'
     ```    
 
-## Running the Pipeline
-1. Put all raw data and calibration files in a dedicated directory, e.g. `/.../working_directory/my_raw_data`
-2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+### Windows
+
+Testing of installation on Windows 11 has been minimal, but the following approach has worked for at least one user.
+
+1. Download and install Anaconda/Miniconda.
+2. Within the Anaconda/Miniconda app, install the Powershell app.
+3. Launch Powershell and create the conda environment, e.g.:
+
     ```sh
-   pywifes-reduce my_raw_data
-   ```
+    conda create -n pywifes python=3.13 pip git setuptools wheel numpy=2 scipy=1.15.1 photutils astropy matplotlib pandas
+    conda activate pywifes
+    ```
+4. Retrieve the pipeline from the repository (one can also download a zip file from GitHub). The `git clone` command will create a `pywifes` directory in your working directory, then complete the environment setup:
+
+    ```sh
+    git clone -b main https://github.com/PyWiFeS/pywifes.git
+    conda env config vars set PYWIFES_DIR=C:\your\path\to\pywifes\reference_data
+    conda env config vars unset PYTHONPATH
+    conda deactivate
+    conda activate pywifes
+    cd pywifes
+    pip install .
+    ```
+
+## Running the Pipeline
+Put all raw data and calibration files in a dedicated directory, e.g. `/.../working_directory/my_raw_data`. Then, launch the pipeline as below.
+
+### MacOS/Linux/Unix
+Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+
+```sh
+pywifes-reduce my_raw_data [other options]
+```
+
+### Windows
+Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+
+```sh
+cd reduction_scripts
+python -m reduce_data my_raw_data [other options]
+```
 
 ## Important Considerations
-The pipeline cannot handle mixed instrument configurations. Input raw_data folders should contain only a single combination of blue grating + beam splitter + red grating (bias frames are the exception, which may use any setup). All data should use the same CCD binning.
+The pipeline cannot handle mixed instrument configurations. Input raw_data folders should contain only a single combination of blue grating + beam splitter + red grating (bias frames are the exception, which may use any setup). 
+
+All data should use the same CCD binning, with the exception of standard star observations. Following overscan subtraction and the conversion from ADU to electron units, standard star observations (usually taken in 1x2 binning in the automated observations of the 2.3m telescope) will be converted to the same binning as the science data by block-summing or distributing the electrons over the appropriate number of pixels in each axis (depending on whether the science data is binned more than or less than the standards).
 
 In addition, the *science* data should all use either Full or Stellar (half-frame) readout regions. Full field calibration data (including standard star observations) will automatically be cut to Stellar size if the science data is Stellar. 
 
@@ -72,7 +119,15 @@ A rule-of-thumb calibration dataset would include:
 5. wire >= 3 frames (from the night of the science data)
 6. standard >= 2 frames of one star (from the night of the science data, if possible) having IS_TELLURIC = 1 in reference_data/stdstar_lookup_table.dat
 
+Dark frames are available in the data archive, but the dark current is ~1 ADU/hour/pixel and so any correction estimated from a limited set of darks would likely only add noise. Use of the darks is thus not recommended.
+
 ### User-Defined Reduction Parameters
+
+**Specify an output directory**
+
+The default output directory is a `data_products` folder created in whatever directory the pipeline is launched from. To specify an alternative directory, use the `--output-dir` flag as follows:
+
+    pywifes-reduce my_raw_data --output-dir /.../data_products_YYYYMMDD
 
 **Set reduction steps**
 

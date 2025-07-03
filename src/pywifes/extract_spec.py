@@ -304,9 +304,9 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
                 sky_sec[sky_dq_sec > 0] = numpy.nan
                 sky_var_sec[sky_dq_sec > 0] = numpy.nan
             sky_average = numpy.nanmedian(sky_sec, axis=1)
-            # Approximate variance of median with Woodruff (1952) estimator
-            lo_pcent = 0.5 * (area - numpy.sqrt(area)) / area * 100.0
-            hi_pcent = 0.5 * (area + numpy.sqrt(area)) / area * 100.0
+            # Approximate the variance of the median with Woodruff (1952) estimator
+            lo_pcent = numpy.clip(0.5 * (area - numpy.sqrt(area)) / area * 100.0, a_min=1.0, a_max=99.0)
+            hi_pcent = numpy.clip(0.5 * (area + numpy.sqrt(area)) / area * 100.0, a_min=1.0, a_max=99.0)
             sky_lo = numpy.nanpercentile(sky_sec, q=lo_pcent, axis=1)
             sky_hi = numpy.nanpercentile(sky_sec, q=hi_pcent, axis=1)
             sky_var = numpy.power((sky_hi - sky_lo) / 2.0, 2)
@@ -527,7 +527,7 @@ def plot_regions(data_cube, source_regions, sky_regions=None, border_width=0, bi
 
     bin_y : int, optional
         Binning of y-axis, to preserve real on-sky shape.
-        Detaulf is 1.
+        Default is 1.
 
     Returns
     -------
@@ -725,9 +725,9 @@ def detect_extract_and_save(
         Width of the border to be excluded from the statistics and source-finding.
         Default: 2.
     det_fwhm : float, optional
-        Full-width at half maximum (in pixels) of the Gaussian convolution kernal used
+        Full-width at half maximum (in arcsec) of the Gaussian convolution kernal used
         for source-finding.
-        Default: 4.3.
+        Default: 2.0.
 
     Extraction Parameters:
     ----------------------
@@ -820,6 +820,10 @@ def detect_extract_and_save(
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
     pixel_scale_y = binning_y / 2.0  # arcsec/pix
+    fine_axis = pixel_scale_x if pixel_scale_x <= pixel_scale_y else pixel_scale_y  # arcsec/pix
+    coarse_axis = pixel_scale_y if pixel_scale_x <= pixel_scale_y else pixel_scale_x  # arcsec/pix
+
+    det_fwhm_pix = det_fwhm / fine_axis
 
     # Sky treatment
     if ns or subns:
@@ -844,16 +848,16 @@ def detect_extract_and_save(
 
     # Automatic source detection in the collapsed cubes (red + blue)
     finder = DAOStarFinder(threshold,
-                           fwhm=det_fwhm,
+                           fwhm=det_fwhm_pix,
                            brightest=nsources,
                            exclude_border=False,
-                           ratio=numpy.clip(pixel_scale_y / float(pixel_scale_x),
+                           ratio=numpy.clip(fine_axis / float(coarse_axis),
                                             a_min=0.05, a_max=1.0),
-                           theta=90.0,
+                           theta=(90.0 if pixel_scale_y == fine_axis else 0.0),
                            sharplo=0.3,
                            sharphi=1.0,
-                           roundlo=-2.0 / pixel_scale_y,
-                           roundhi=2.0 / pixel_scale_y,
+                           roundlo=-2.0 / fine_axis,
+                           roundhi=2.0 / fine_axis,
                            min_separation=3)
 
     try:
@@ -896,11 +900,11 @@ def detect_extract_and_save(
         positions = positions + numpy.array([xmin, border_width])
 
         # Set the apertures
-        a = r_arcsec / pixel_scale_x
-        b = r_arcsec / pixel_scale_y
+        a = r_arcsec / fine_axis
+        b = r_arcsec / coarse_axis
 
         # Creates source regions in the detected positions
-        source_regions = EllipticalAperture(positions, a=a, b=b)
+        source_regions = EllipticalAperture(positions, a=a, b=b, theta=numpy.radians((90.0 if pixel_scale_y == fine_axis else 0.0)))
 
         if sky_sub:
             if sky_method == "same_slice":
@@ -910,27 +914,29 @@ def detect_extract_and_save(
                     total_mask += source_mask[sm].to_image(collapsed_cube.shape)
 
                 sky_positions = positions.copy()
-                this_a = a
-                this_b = b
+                this_a = a  # fine axis
+                this_b = b  # coarse axis
+                orig_y = a if pixel_scale_y == fine_axis else b
                 for sp, op in zip(sky_positions, positions):
                     stop_shifting = False
                     # Reduce radial size
                     for rscale in [1., 0.75, 0.5]:
-                        this_a = a * rscale
-                        this_b = b * rscale
+                        this_a = a * rscale  # fine axis
+                        this_b = b * rscale  # coarse axis
+                        this_y = this_a if pixel_scale_y == fine_axis else this_b
                         # Shift one slice either direction
                         for xoffset in [0, -1, 1]:
                             # Shift beyond science aperture extent, even if away from centre
                             for yoffset in [1.1, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, -1.1, -1.25, -1.5, 2.5]:
                                 sp[0] = op[0] + xoffset
                                 if op[1] + 1 > collapsed_cube.shape[0] / 2.0:
-                                    sp[1] = op[1] - b - rscale * b * yoffset
+                                    sp[1] = op[1] - orig_y - this_y * yoffset
                                 else:
-                                    sp[1] = op[1] + b + rscale * b * yoffset
+                                    sp[1] = op[1] + orig_y + this_y * yoffset
                                 if ((sp[0] < 1 or sp[0] > collapsed_cube.shape[1] - 2)
-                                        or (sp[1] < b * rscale or sp[1] > collapsed_cube.shape[0] - 1 - b * rscale)):
+                                        or (sp[1] < this_y or sp[1] > collapsed_cube.shape[0] - 1 - this_y)):
                                     continue
-                                test_shape = EllipticalAperture(sp, a=this_a, b=this_b).to_mask(method='center').to_image(collapsed_cube.shape)
+                                test_shape = EllipticalAperture(sp, a=this_a, b=this_b, theta=numpy.radians((90.0 if pixel_scale_y == fine_axis else 0.0))).to_mask(method='center').to_image(collapsed_cube.shape)
                                 if numpy.sum(test_shape * total_mask) == 0:
                                     stop_shifting = True
                                     break
@@ -944,7 +950,7 @@ def detect_extract_and_save(
                         sky_method = "annulus"
                         break
                 if stop_shifting:
-                    sky_regions = EllipticalAperture(sky_positions, a=this_a, b=this_b)
+                    sky_regions = EllipticalAperture(sky_positions, a=this_a, b=this_b, theta=numpy.radians((90.0 if pixel_scale_y == fine_axis else 0.0)))
 
             if sky_method == "annulus":
                 a_in = a * bkg_in_factor
@@ -959,6 +965,7 @@ def detect_extract_and_save(
                     a_out=a_out,
                     b_in=b_in,
                     b_out=b_out,
+                    theta=numpy.radians((90.0 if pixel_scale_y == fine_axis else 0.0))
                 )
         else:
             sky_regions = None

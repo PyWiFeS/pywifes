@@ -49,11 +49,11 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                 # filename) was associated with multiple science frames. Thus,
                 # no consideration of skip_done.
                 in_fn_list = [
-                    os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+                    os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
                     for fn in obs["sky"]
                 ]
                 sky_proc_fn = os.path.join(
-                    gargs['out_dir'], "%s.p%s.fits" % (obs["sky"][0], curr_suffix)
+                    gargs['out_dir_arm'], "%s.p%s.fits" % (obs["sky"][0], curr_suffix)
                 )
                 print(f"Coadding sky frames into {os.path.basename(sky_proc_fn)}")
                 pywifes.imcombine_mef(in_fn_list, sky_proc_fn, scale="exptime", method="median")
@@ -61,13 +61,13 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                 # A single sky exposure.
                 sky_fn = obs["sky"][0]
                 sky_proc_fn = os.path.join(
-                    gargs['out_dir'], "%s.p%s.fits" % (sky_fn, prev_suffix)
+                    gargs['out_dir_arm'], "%s.p%s.fits" % (sky_fn, prev_suffix)
                 )
             for fn in obs["sci"]:
                 # Subtract scaled sky frame from each science frame for a single object.
-                in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+                in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(
-                    gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix)
+                    gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix)
                 )
                 if gargs['skip_done'] and os.path.isfile(out_fn) \
                         and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
@@ -79,14 +79,14 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
         else:
             # No separate sky frames defined.
             for fn in obs["sci"]:
-                in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+                in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(
-                    gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix)
+                    gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix)
                 )
                 ns_input = is_nodshuffle(in_fn)
                 if ns_input or is_subnodshuffle(in_fn):
                     # For Nod and Shuffle, locate the file containing the second position.
-                    sky_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
+                    sky_fn = os.path.join(gargs['out_dir_arm'], "%s.s%s.fits" % (fn, prev_suffix))
                     if separate_ns:
                         # Treat the two offset positions as independent exposures.
                         if gargs['skip_done'] and os.path.isfile(out_fn) \
@@ -96,7 +96,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                             print(f"Copying N&S science image {os.path.basename(in_fn)}")
                             pywifes.imcopy(in_fn, out_fn)
 
-                        out_sky_fn = os.path.join(gargs['out_dir'], "%ss.p%s.fits" % (fn, curr_suffix))
+                        out_sky_fn = os.path.join(gargs['out_dir_arm'], "%ss.p%s.fits" % (fn, curr_suffix))
                         if gargs['skip_done'] and os.path.isfile(out_sky_fn) \
                                 and os.path.getmtime(sky_fn) < os.path.getmtime(out_sky_fn):
                             pass
@@ -145,8 +145,8 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
     # copy stdstar frames
     std_obs_list = get_std_obs_list(metadata)
     for fn in std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue

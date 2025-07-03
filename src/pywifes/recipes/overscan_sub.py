@@ -1,6 +1,7 @@
+import astropy.io.fits as fits
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import get_full_obs_list, wifes_recipe
+from pywifes.wifes_utils import get_full_obs_list, get_sci_obs_list, get_std_obs_list, wifes_recipe
 
 
 # ------------------------------------------------------------------------
@@ -73,13 +74,33 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
     to avoid using the epoch-based values.
     """
     full_obs_list = get_full_obs_list(metadata)
+
+    # Check if any 1x2-binned standards need a different binning to match the science data
+    match_binning = None
+    sci_list = get_sci_obs_list(metadata)
+    sci_binning = []
+    for fn in sci_list:
+        this_head = fits.getheader(os.path.join(gargs['data_dir'], "%s.fits" % fn))
+        sci_binning.append(this_head['CCDSUM'])
+    sci_binning = set(sci_binning)
+    if len(sci_binning) > 1:
+        raise ValueError(f"Must process different science binning modes separately! Found: {sci_binning}")
+    std_list = get_std_obs_list(metadata)
+    std_binning = []
+    for fn in std_list:
+        this_head = fits.getheader(os.path.join(gargs['data_dir'], "%s.fits" % fn))
+        std_binning.append(this_head['CCDSUM'])
+    # Set desired binning if not all std_binning are contained in sci_binning (a 1-element set)
+    if not set(std_binning).issubset(sci_binning):
+        [match_binning] = sci_binning
+
     first = True
     if not poly_high_oscan:
         first = False
         oscanmask = None
     for fn in full_obs_list:
         in_fn = os.path.join(gargs['data_dir'], "%s.fits" % fn)
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         if gargs['skip_done'] and os.path.isfile(out_fn):
             # cannot check mtime here because of fresh copy to raw_data_temp
             continue
@@ -93,5 +114,11 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
             else:
                 oscanmask = None
             first = False
-        pywifes.subtract_overscan(in_fn, out_fn, data_hdu=gargs['my_data_hdu'], omaskfile=oscanmask, **args)
+        # Check if this image needs its binning checked
+        this_binning = None
+        if fn in std_list:
+            this_binning = match_binning
+
+        # Subtract overscan
+        pywifes.subtract_overscan(in_fn, out_fn, data_hdu=gargs['my_data_hdu'], omaskfile=oscanmask, match_binning=this_binning, **args)
     return

@@ -5,7 +5,7 @@ Directory Structure
 
 The pipeline generates a directory structure to store the **reduced data**. The directory structure is created within the working directory specified by the user. The working directory is the directory where the pipeline is executed. 
 
-The pipeline will generate the `data_products` directory within the working directory `/.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure: 
+Unless otherwise specified by the user, the pipeline will generate the `data_products` directory within the working directory `/.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure: 
 
 - data_products
     - `blue.log` 

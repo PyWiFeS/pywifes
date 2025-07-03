@@ -10,7 +10,7 @@ PyWiFeS is an automated and upgraded version of the original PyWiFeS pipeline (s
 Upgrades from the Previous Version
 ----------------------------------
 
-Main upgrades from the previous PyWiFeS version *as of May 2025*:
+Main upgrades from the previous PyWiFeS version:
 
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Pip installable.
@@ -19,7 +19,7 @@ Main upgrades from the previous PyWiFeS version *as of May 2025*:
     - `nod-and-shuffle` mode.
     - `sub-nod-and-shuffle` mode.
     - Stellar frame configuration (that is, only half of the detector is used).
-    - Any binning mode.
+    - Any single binning mode, plus standards binned differently from science data.
     - Backwards compatible with data obtained by TAROS.
 - New JSON5 config files for each grating, with comments for each user option.
   - The pipeline will choose a template automatically, if not specified by the user.
@@ -30,7 +30,7 @@ Main upgrades from the previous PyWiFeS version *as of May 2025*:
 - Extraction and splicing of the spectra and splicing of the 3D astrometrised cubes are now implemented.
 - Added multiprocessing for faster execution.
 - Multiple quality plots are automatically generated and saved.
-- Organized output directory (`/data_products`).
+- Organized output directory (`/data_products`), which can be modified by command-line option.
 
 
 Key Features

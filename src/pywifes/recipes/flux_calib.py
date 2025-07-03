@@ -52,8 +52,8 @@ def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", *
     else:
         this_calib_fn = gargs['calib_fn']
     for fn in sci_obs_list + std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
-        out_fn = os.path.join(gargs['out_dir'], f"{fn}.p{curr_suffix}.fits")
+        in_fn = os.path.join(gargs['out_dir_arm'], f"{fn}.p{prev_suffix}.fits")
+        out_fn = os.path.join(gargs['out_dir_arm'], f"{fn}.p{curr_suffix}.fits")
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue

@@ -85,12 +85,12 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
     sci_obs_list = get_primary_sci_obs_list(metadata)
     std_obs_list = get_primary_std_obs_list(metadata)
     for fn in sci_obs_list + std_obs_list:
-        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
-        out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+        in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, curr_suffix))
         # decide whether to use global or local wsol and wire files
         local_wires = get_associated_calib(metadata, fn, "wire")
         if local_wires:
-            wire_fn = os.path.join(gargs['out_dir'], "%s.wire.fits" % (local_wires[0]))
+            wire_fn = os.path.join(gargs['out_dir_arm'], "%s.wire.fits" % (local_wires[0]))
             print(f"(Note: using {os.path.basename(wire_fn)} as wire file)")
         else:
             wire_fn = gargs['wire_out_fn']
@@ -107,7 +107,7 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                 arc_times = ["", ""]
                 for i in range(2):
                     local_wsol_out_fn_extra = os.path.join(
-                        gargs['out_dir'], f"{local_arcs[i]}.wsol.fits_extra.pkl")
+                        gargs['out_dir_arm'], f"{local_arcs[i]}.wsol.fits_extra.pkl")
                     with open(local_wsol_out_fn_extra, "rb") as f:
                         try:
                             f_pickled = pickle.load(f, protocol=2)
@@ -154,15 +154,15 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                         w2 = ds1 / (ds1 + ds2)
 
                     # Open the arc solution files
-                    fn0 = os.path.join(gargs['out_dir'], f"{local_arcs[0]}.wsol.fits")
-                    fn1 = os.path.join(gargs['out_dir'], f"{local_arcs[1]}.wsol.fits")
+                    fn0 = os.path.join(gargs['out_dir_arm'], f"{local_arcs[0]}.wsol.fits")
+                    fn1 = os.path.join(gargs['out_dir_arm'], f"{local_arcs[1]}.wsol.fits")
                     fits0 = pyfits.open(fn0)
                     fits1 = pyfits.open(fn1)
 
                     for i in range(1, len(fits0)):
                         fits0[i].data = w1 * fits0[i].data + w2 * fits1[i].data
 
-                    wsol_fn = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (fn))
+                    wsol_fn = os.path.join(gargs['out_dir_arm'], "%s.wsol.fits" % (fn))
                     fits0.writeto(wsol_fn, overwrite=True)
 
                     print("(2 arcs found)")
@@ -171,12 +171,12 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                 else:
                     # Arcs do not surround the Science frame
                     # Revert to using the first one instead
-                    wsol_fn = os.path.join(gargs['out_dir'], f"{local_arcs[0]}.wsol.fits")
+                    wsol_fn = os.path.join(gargs['out_dir_arm'], f"{local_arcs[0]}.wsol.fits")
                     print("(2 arcs found, but they do not bracket the Science frame!)")
                     print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
             else:
                 # IF Either 1 or more than two arcs present, only use the first one.
-                wsol_fn = os.path.join(gargs['out_dir'], f"{local_arcs[0]}.wsol.fits")
+                wsol_fn = os.path.join(gargs['out_dir_arm'], f"{local_arcs[0]}.wsol.fits")
                 print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
         else:
             wsol_fn = gargs['wsol_out_fn']
