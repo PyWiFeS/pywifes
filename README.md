@@ -119,7 +119,7 @@ A rule-of-thumb calibration dataset would include:
 5. wire >= 3 frames (from the night of the science data)
 6. standard >= 2 frames of one star (from the night of the science data, if possible) having IS_TELLURIC = 1 in reference_data/stdstar_lookup_table.dat
 
-Dark frames are available in the data archive, but the dark current is ~1 ADU/hour/pixel and so any correction estimated from a limited set of darks would likely only add nose. Use of the darks is thus not recommended.
+Dark frames are available in the data archive, but the dark current is ~1 ADU/hour/pixel and so any correction estimated from a limited set of darks would likely only add noise. Use of the darks is thus not recommended.
 
 ### User-Defined Reduction Parameters
 
