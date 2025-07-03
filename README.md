@@ -17,7 +17,7 @@ For even more information, we refer the users to the [old PyWiFeS User Manual](h
 
 ### MacOS/Linux/Unix
 
-1. Download or clone this branch of the `pipeline` repository:
+1. Download or clone the `main` branch of the `pipeline` repository:
     ```sh
     git clone -b main https://github.com/PyWiFeS/pywifes.git
     ```
