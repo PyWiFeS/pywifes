@@ -46,7 +46,7 @@ For even more information, we refer the users to the [old PyWiFeS User Manual](h
     ```
 
     Then deactivate and reactivate the conda env.
-    2. Add the following line to your `~/.bashrc` so it will run on login:
+    2. Add the following line to your environment configuration file (`~/.bashrc`, `~/.zshrc`, etc.) so it will run on login:
 
     ```sh
     export PYWIFES_DIR=/your/path/to/pywifes/reference_data
