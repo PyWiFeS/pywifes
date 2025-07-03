@@ -85,7 +85,7 @@ Testing of installation on Windows 11 has been minimal, but the following approa
     ```
 
 ## Running the Pipeline
-Put all raw data and calibration files in a dedicated directory, e.g. `/.../working_directory/my_raw_data`. Then launch the pipeline as below.
+Put all raw data and calibration files in a dedicated directory, e.g. `/.../working_directory/my_raw_data`. Then, launch the pipeline as below.
 
 ### MacOS/Linux/Unix
 Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
