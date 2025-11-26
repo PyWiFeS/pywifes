@@ -5443,7 +5443,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     if wave_ext:
         ctype3 = "PIXEL"
     else:
-        ctype3 = "WAVE"
+        ctype3 = "WAVE" if "PYWWVREF" in f[1].header and f[1].header["PYWWVREF"] == "VACUUM" else "AWAV"
 
     # Coordinate transformations
     # Telescope angle

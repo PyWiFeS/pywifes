@@ -74,25 +74,28 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
     to avoid using the epoch-based values.
     """
     full_obs_list = get_full_obs_list(metadata)
-
-    # Check if any 1x2-binned standards need a different binning to match the science data
-    match_binning = None
-    sci_list = get_sci_obs_list(metadata)
-    sci_binning = []
-    for fn in sci_list:
-        this_head = fits.getheader(os.path.join(gargs['data_dir'], "%s.fits" % fn))
-        sci_binning.append(this_head['CCDSUM'])
-    sci_binning = set(sci_binning)
-    if len(sci_binning) > 1:
-        raise ValueError(f"Must process different science binning modes separately! Found: {sci_binning}")
+    target_list = get_sci_obs_list(metadata)
     std_list = get_std_obs_list(metadata)
+
+    # Check if any 1x2-binned standards need a different binning to match the other data
+    match_binning = None
+    # If no science frames or only processing calibrations, check the calibrations instead
+    if len(target_list) == 0 or gargs['just_calib']:
+        target_list = [item for item in full_obs_list if item not in target_list and item not in std_list]
+    target_binning = []
+    for fn in target_list:
+        this_head = fits.getheader(os.path.join(gargs['data_dir'], "%s.fits" % fn))
+        target_binning.append(this_head['CCDSUM'])
+    target_binning = set(target_binning)
+    if len(target_binning) > 1:
+        raise ValueError(f"Must process different binning modes separately! Found: {target_binning}")
     std_binning = []
     for fn in std_list:
         this_head = fits.getheader(os.path.join(gargs['data_dir'], "%s.fits" % fn))
         std_binning.append(this_head['CCDSUM'])
-    # Set desired binning if not all std_binning are contained in sci_binning (a 1-element set)
-    if not set(std_binning).issubset(sci_binning):
-        [match_binning] = sci_binning
+    # Set desired binning if not all std_binning are contained in target_binning (a 1-element set)
+    if not set(std_binning).issubset(target_binning):
+        [match_binning] = target_binning
 
     first = True
     if not poly_high_oscan:

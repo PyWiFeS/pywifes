@@ -72,6 +72,7 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 - `--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
 - `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
+- `--quick-clean`: Deletes the intermediate files after the next step has been generated.
 - `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 - `--extract`: Automatically locate sources in the output datacubes and extract spectra. By default, uses the parameters defined in JSON5 file (normally in pip's site-packages/pywifes directory rather than the install directory):
 

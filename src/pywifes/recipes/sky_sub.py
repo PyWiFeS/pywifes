@@ -39,6 +39,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
 
     # Create a stable copy to enable additions without repetitions
     this_metadata_sci = metadata["sci"].copy()
+
     for obs in this_metadata_sci:
         if len(obs["sky"]) > 0:
             # Prepare the separate sky exposure, if defined.
@@ -78,6 +79,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                 )
         else:
             # No separate sky frames defined.
+            new_sci_list = []
             for fn in obs["sci"]:
                 in_fn = os.path.join(gargs['out_dir_arm'], "%s.p%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(
@@ -103,8 +105,9 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                         else:
                             print(f"Copying N&S sky image {os.path.basename(sky_fn)}")
                             pywifes.imcopy(sky_fn, out_sky_fn)
-                            # Add 'sky' from N&S to science metadata
-                            metadata['sci'].append({"sci": [os.path.basename(out_sky_fn).replace(f".p{curr_suffix}.fits", "")], "sky": []})
+                            # Populate a list of science images from the sky frames
+                            new_sci_list.append(os.path.basename(out_sky_fn).replace(f".p{curr_suffix}.fits", ""))
+                            
                             # Update headers
                             fh = fits.open(out_fn, mode="update")
                             fh_sky = fits.open(out_sky_fn, mode="update")
@@ -142,6 +145,11 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                         continue
                     print(f"Copying science image {os.path.basename(in_fn)}")
                     pywifes.imcopy(in_fn, out_fn)
+
+            # If separate_ns, add list of 'sky' from N&S to science metadata
+            if len(new_sci_list) > 0:
+                metadata['sci'].append({"sci": new_sci_list, "sky": []})
+
     # copy stdstar frames
     std_obs_list = get_std_obs_list(metadata)
     for fn in std_obs_list:
