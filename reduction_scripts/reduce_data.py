@@ -27,7 +27,7 @@ import pywifes.recipes as recipes
 
 def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir,
                   output_dir, params_path, grism_key, just_calib, plot_dir,
-                  from_master, extra_skip_steps, return_dict, skip_done):
+                  from_master, extra_skip_steps, return_dict, skip_done, quick_clean):
     # Reduces the data for an individual arm.
 
     try:
@@ -42,6 +42,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
         gargs['arm'] = arm
         gargs['master_dir'] = master_dir
         gargs['from_master'] = from_master
+        gargs['just_calib'] = just_calib
         gargs['output_master_dir'] = output_master_dir
         gargs['output_dir'] = output_dir
 
@@ -207,6 +208,14 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
                             **step_args,
                         )
                         if step_suffix is not None:
+                            if quick_clean:
+                                files_to_delete = glob.glob('{}/*.[ps]{}.fits'.format(gargs['out_dir_arm'], prev_suffix))
+                                for file_path in files_to_delete:
+                                    try:
+                                        os.remove(file_path)
+                                    except OSError as e:
+                                        print(f"Error removing {file_path}: {e.strerror}")
+
                             prev_suffix = step_suffix
 
                     else:
@@ -375,6 +384,13 @@ def main():
         help="Optional: Skip processing and only extract or extract-and-splice",
     )
 
+    # Option to delete each intermediate step after the subsequent one has been produced
+    parser.add_argument(
+        "--quick-clean",
+        action="store_true",
+        help="Optional: Delete each intermediate step after the next one has been made",
+    )
+
     args = parser.parse_args()
 
     # Validate and process the user_data_dir
@@ -441,6 +457,9 @@ def main():
     # Skip processing and only extract or extract-and-splice
     no_processing = args.no_processing
 
+    # Delete each intermediate step after it has produced the next one
+    quick_clean = args.quick_clean
+
     # Creates a directory for plot.
     plot_dir = os.path.join(output_dir, "plots/")
     os.makedirs(plot_dir, exist_ok=True)
@@ -501,7 +520,7 @@ def main():
         if args.run_both:
             # Try and reduce both arms at the same time
             for arm in obs_metadatas.keys():
-                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
+                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done, quick_clean))
                 jobs.append(p)
                 p.start()
 
@@ -510,7 +529,7 @@ def main():
         else:
             # Otherwise reduce them sequentially
             for arm in obs_metadatas.keys():
-                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
+                p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, output_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done, quick_clean))
                 jobs.append(p)
                 p.start()
 

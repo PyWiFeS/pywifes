@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [main - 2.2.0] - 2025-11-27
+
+Minor bugfixes and enhancements.
+
+### Changed
+
+- Nod & Shuffle
+  - Maintain user-defined coadd state when separating Nod & Shuffle components
+
+- File management
+  - quick-clean option removes intermediate files as it goes
+
+- Bugfixes
+  - Restore `--just-calib` handling
+  - Ensure wavelength keywords comply with standards
+
 ## [main - 2.1.0] - 2025-06-26
 
 Minor enhancements for added flexibility.

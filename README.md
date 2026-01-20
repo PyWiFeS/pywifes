@@ -183,6 +183,8 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 
+`--quick-clean`: Clean up intermediate files after the next step has been produced.
+
 `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
 `--extract`: Automatically locate sources in the output datacubes and extract sources. Default parameters defined in JSON5 file (normally in pip's site-packages/pywifes directory):

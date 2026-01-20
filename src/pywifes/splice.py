@@ -325,10 +325,11 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdulist[0].header["EXPTBLUE"] = (blueSpec.header["EXPTIME"],
                                          "Exposure time in blue arm")
         hdulist[0].header.remove("EXPTIME")
+    wave_ref = "WAVE" if "PYWWVREF" in hdulist[0].header and hdulist[0].header["PYWWVREF"] == "VACUUM" else "AWAV"
     hdulist[0].header["CRPIX1"] = 1
     hdulist[0].header["CRVAL1"] = wave_min
     hdulist[0].header["CDELT1"] = wstep_out
-    hdulist[0].header["CTYPE1"] = "WAVE"
+    hdulist[0].header["CTYPE1"] = wave_ref
     hdulist[0].header["CUNIT1"] = "Angstrom"
 
     hdr_fluxvar = fits.Header()
@@ -336,7 +337,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
     hdr_fluxvar["CRPIX1"] = 1
     hdr_fluxvar["CRVAL1"] = wave_min
     hdr_fluxvar["CDELT1"] = wstep_out
-    hdr_fluxvar["CTYPE1"] = "WAVE"
+    hdr_fluxvar["CTYPE1"] = wave_ref
     hdr_fluxvar["CUNIT1"] = "Angstrom"
     hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
@@ -351,7 +352,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdr_dq["CRPIX1"] = 1
         hdr_dq["CRVAL1"] = wave_min
         hdr_dq["CDELT1"] = wstep_out
-        hdr_dq["CTYPE1"] = "WAVE"
+        hdr_dq["CTYPE1"] = wave_ref
         hdr_dq["CUNIT1"] = "Angstrom"
 
         hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"),
@@ -365,7 +366,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdr_sky["CRPIX1"] = 1
         hdr_sky["CRVAL1"] = wave_min
         hdr_sky["CDELT1"] = wstep_out
-        hdr_sky["CTYPE1"] = "WAVE"
+        hdr_sky["CTYPE1"] = wave_ref
         hdr_sky["CUNIT1"] = "Angstrom"
 
         hdu_sky = fits.ImageHDU(data=sky.astype("float32", casting="same_kind"),
@@ -379,7 +380,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdr_tell["CRPIX1"] = 1
         hdr_tell["CRVAL1"] = wave_min
         hdr_tell["CDELT1"] = wstep_out
-        hdr_tell["CTYPE1"] = "WAVE"
+        hdr_tell["CTYPE1"] = wave_ref
         hdr_tell["CUNIT1"] = "Angstrom"
 
         tell_data = tell.astype("float32", casting="same_kind")
@@ -395,7 +396,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdr_ext["CRPIX1"] = 1
         hdr_ext["CRVAL1"] = wave_min
         hdr_ext["CDELT1"] = wstep_out
-        hdr_ext["CTYPE1"] = "WAVE"
+        hdr_ext["CTYPE1"] = wave_ref
         hdr_ext["CUNIT1"] = "Angstrom"
         hdr_ext['COMMENT'] = 'Flux extinction correction applied to reach airmass zero'
         hdr_ext['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
@@ -695,10 +696,11 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
         hdulist[0].header["EXPTBLUE"] = (blue_header["EXPTIME"],
                                          "Exposure time in blue arm")
         hdulist[0].header.remove("EXPTIME")
+    wave_ref = "WAVE" if "PYWWVREF" in hdulist[0].header and hdulist[0].header["PYWWVREF"] == "VACUUM" else "AWAV"
     hdulist[0].header["CRPIX3"] = 1
     hdulist[0].header["CRVAL3"] = wave_min
     hdulist[0].header["CDELT3"] = wstep_out
-    hdulist[0].header["CTYPE3"] = "Wavelength"
+    hdulist[0].header["CTYPE3"] = wave_ref
     hdulist[0].header["CUNIT3"] = "Angstrom"
 
     hdr_fluxvar = fits.Header()
@@ -706,7 +708,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
     hdr_fluxvar["CRPIX3"] = 1
     hdr_fluxvar["CRVAL3"] = wave_min
     hdr_fluxvar["CDELT3"] = wstep_out
-    hdr_fluxvar["CTYPE3"] = "Wavelength"
+    hdr_fluxvar["CTYPE3"] = wave_ref
     hdr_fluxvar["CUNIT3"] = "Angstrom"
     hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
@@ -721,7 +723,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
         hdr_dq["CRPIX3"] = 1
         hdr_dq["CRVAL3"] = wave_min
         hdr_dq["CDELT3"] = wstep_out
-        hdr_dq["CTYPE3"] = "Wavelength"
+        hdr_dq["CTYPE3"] = wave_ref
         hdr_dq["CUNIT3"] = "Angstrom"
 
         hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"), header=hdr_dq)
@@ -734,7 +736,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
         hdr_tell["CRPIX1"] = 1
         hdr_tell["CRVAL1"] = wave_min
         hdr_tell["CDELT1"] = wstep_out
-        hdr_tell["CTYPE1"] = "WAVE"
+        hdr_tell["CTYPE1"] = wave_ref
         hdr_tell["CUNIT1"] = "Angstrom"
 
         tell_data = tell.astype("float32", casting="same_kind")
@@ -750,7 +752,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
         hdr_ext["CRPIX1"] = 1
         hdr_ext["CRVAL1"] = wave_min
         hdr_ext["CDELT1"] = wstep_out
-        hdr_ext["CTYPE1"] = "WAVE"
+        hdr_ext["CTYPE1"] = wave_ref
         hdr_ext["CUNIT1"] = "Angstrom"
         hdr_ext['COMMENT'] = 'Flux extinction correction applied to reach airmass zero'
         hdr_ext['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
