@@ -1,11 +1,24 @@
 from astropy.io import fits
+import json
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy
-import pickle
 from photutils.aperture import RectangularAperture
 
 from pywifes.wifes_utils import is_halfframe, is_taros
+
+def convert(x):
+    if hasattr(x, "tolist"):  # numpy arrays have this
+        return {"$array": x.tolist()}  # Make a tagged object
+    raise TypeError(x)
+
+
+def deconvert(x):
+    if len(x) == 1:  # Might be a tagged object...
+        key, value = next(iter(x.items()))  # Grab the tag and value
+        if key == "$array":  # If the tag is correct,
+            return numpy.array(value)  # cast back to array
+    return x
 
 
 def slitlet_cutout(image, aperture):
@@ -38,9 +51,9 @@ def slitlet_aperture(boundaries, halfframe, taros, bin_x=1, bin_y=2):
     return aperture
 
 
-def read_pkl(path_pkl):
-    with open(path_pkl, 'rb') as file:
-        data = pickle.load(file)
+def read_data(path_file):
+    with open(path_file, 'r') as file:
+        data = json.load(file, object_hook=deconvert)
     return data
 
 
@@ -56,7 +69,7 @@ def plot_slitlet(ax, path_slitlet, halfframe=False, taros=False, bin_x=1, bin_y=
         first = 1
         last = 25
 
-    slitlets = read_pkl(path_slitlet)
+    slitlets = read_data(path_slitlet)
     # Toy plot for labeling
     ax.plot(0, 0, color='red', lw=1, ls='--', label='Slitlet boundary', zorder=-1)
 
@@ -77,7 +90,7 @@ def plot_fits(ax, image_path, min=5, max=95, cmap="nipy_spectral"):
 
 def plot_collapsed_slitlets(ax, path_slitlet, image_path, halfframe=False, taros=False, bin_x=1, bin_y=2):
     image = fits.getdata(image_path)
-    slitlets = read_pkl(path_slitlet)
+    slitlets = read_data(path_slitlet)
     for slit_number in slitlets:
         boundaries = slitlets[slit_number]
         aperture = slitlet_aperture(boundaries, halfframe=halfframe, taros=taros, bin_x=bin_x, bin_y=bin_y)
@@ -87,7 +100,7 @@ def plot_collapsed_slitlets(ax, path_slitlet, image_path, halfframe=False, taros
 
 
 def slitlet_yticks(path_slitlet, halfframe=False, taros=False, bin_y=2):
-    slitlets = read_pkl(path_slitlet)
+    slitlets = read_data(path_slitlet)
     y_centers = []
     slit_numbers = []
 
@@ -174,7 +187,7 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
     ax1.set_ylabel('Slitlet number', size=15)
 
     # Plot collapsed slitlet on the bottom
-    slitlets = read_pkl(slitlet_path)
+    slitlets = read_data(slitlet_path)
 
     for i, index in enumerate(range(first, last + 1)):
         slit_number = str(index)

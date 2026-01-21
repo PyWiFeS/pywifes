@@ -1,11 +1,11 @@
 from __future__ import print_function
 from astropy.io import fits as pyfits
+import json
 from math import factorial
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy
 import os
-import pickle
 import scipy.interpolate as interp
 
 from pywifes import wifes_ephemeris
@@ -14,6 +14,19 @@ from pywifes.wifes_metadata import metadata_dir, __version__
 from pywifes.wifes_utils import (
     arguments, hl_envelopes_idx, is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
 )
+
+def convert(x):
+    if hasattr(x, "tolist"):  # numpy arrays have this
+        return {"$array": x.tolist()}  # Make a tagged object
+    raise TypeError(x)
+
+
+def deconvert(x):
+    if len(x) == 1:  # Might be a tagged object...
+        key, value = next(iter(x.items()))  # Grab the tag and value
+        if key == "$array":  # If the tag is correct,
+            return numpy.array(value)  # cast back to array
+    return x
 
 
 # ------------------------------------------------------------------------
@@ -1006,8 +1019,8 @@ def derive_wifes_calibration(
 
     save_calib = {"wave": final_x, "cal": final_y, "airmass": ref_airmass,
                   "std_file": ref_fname}
-    f1 = open(calib_out_fn, "wb")
-    pickle.dump(save_calib, f1)
+    f1 = open(calib_out_fn, "w")
+    json.dump(save_calib, f1, default=convert)
     f1.close()
     return
 
@@ -1123,8 +1136,8 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     std_file = "None"
     # calculate the flux calibration array
     if mode == "pywifes":
-        f1 = open(calib_fn, "rb")
-        calib_info = pickle.load(f1)
+        f1 = open(calib_fn, "r")
+        calib_info = json.load(f1, object_hook=deconvert)
         f1.close()
         sort_order = calib_info["wave"].argsort()
         calib_wave = calib_info["wave"][sort_order]
@@ -1485,8 +1498,8 @@ def derive_wifes_telluric(
         "sky": final_sky,
         "tellstd_list": tellstd_list,
     }
-    f1 = open(out_fn, "wb")
-    pickle.dump(tellcorr_info, f1)
+    f1 = open(out_fn, "w")
+    json.dump(tellcorr_info, f1, default=convert)
     f1.close()
     return
 
@@ -1559,8 +1572,8 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
 
     # ---------------------------------------------
     # open the telluric correction file
-    f1 = open(tellcorr_fn, "rb")
-    tellcorr_info = pickle.load(f1)
+    f1 = open(tellcorr_fn, "r")
+    tellcorr_info = json.load(f1, object_hook=deconvert)
     if "tellstd_list" in tellcorr_info:
         tellstd_list = tellcorr_info["tellstd_list"]
         tellstd_list = ",".join(str(tf) for tf in tellstd_list)
@@ -1586,7 +1599,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
                 bounds_error=False, fill_value=0.0
             )
         except KeyError:
-            print("Could not find 'sky' in telluric correction pickle file. Cannot shift to spectrum.")
+            print("Could not find 'sky' in telluric correction JSON file. Cannot shift to spectrum.")
             shift_sky = False
     f1.close()
     # ---------------------------------------------

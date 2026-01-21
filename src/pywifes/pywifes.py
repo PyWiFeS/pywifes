@@ -3,12 +3,12 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits as pyfits
 import astropy.units as u
 import gc
+import json
 from matplotlib import colormaps as cm, colors
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy
 import os
-import pickle
 import re
 import scipy.interpolate as interp
 import scipy.ndimage as ndimage
@@ -24,14 +24,26 @@ from pywifes.wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
 from pywifes.wifes_utils import arguments, fits_scale_from_bitpix, is_halfframe, is_taros, nan_helper
 from pywifes.mpfit import mpfit
 
+# JSON converter from numpy arrays
+def convert(x):
+    if hasattr(x, "tolist"):  # numpy arrays have this
+        return {"$array": x.tolist()}  # Make a tagged object
+    raise TypeError(x)
+
+
+# JSON converter back to numpy arrays 
+def deconvert(x):
+    if len(x) == 1:  # Might be a tagged object...
+        key, value = next(iter(x.items()))  # Grab the tag and value
+        if key == "$array":  # If the tag is correct,
+            return numpy.array(value)  # cast back to array
+    return x
+
 # ------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
 try:
-    f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
-    try:
-        wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
-    except Exception:
-        wifes_metadata = pickle.load(f0)  # fix_imports doesn't work in python 2.7.
+    f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.json"), "r")
+    wifes_metadata = json.load(f0, object_hook=deconvert)
     f0.close()
 except Exception as e:
     print(f"Failed to open or load wifes_metadata: {e}")
@@ -1903,7 +1915,7 @@ def fit_wifes_interslit_bias(
     data_hdu : int, optional
         The HDU index for the data extension in the input images. Default is 0.
     slitlet_def_file : str, optional
-        The path to the pickle file defining the slitlet boundaries. Default is None.
+        The path to the JSON file defining the slitlet boundaries. Default is None.
     method : str, optional
         Method to fit interslit bias level. Options are "row_med" (per-column mean of
         points within 20 counts of the column's median), "surface" (fit 2D surface to
@@ -1938,8 +1950,8 @@ def fit_wifes_interslit_bias(
     interstice_map = numpy.ones(numpy.shape(orig_data))
     interstice_mask = numpy.ones(numpy.shape(orig_data)[0])
     if slitlet_def_file is not None:
-        f2 = open(slitlet_def_file, "rb")
-        slitlet_defs = pickle.load(f2)
+        f2 = open(slitlet_def_file, "r")
+        slitlet_defs = json.load(f2, object_hook=deconvert)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs
@@ -2127,7 +2139,7 @@ def save_wifes_interslit_bias(
     data_hdu : int, optional
         The HDU index for the data extension in the input images. Default is 0.
     slitlet_def_file : str, optional
-        The path to the pickle file defining the slitlet boundaries. Default is None.
+        The path to the JSON file defining the slitlet boundaries. Default is None.
     method : str, optional
         Method to fit interslit bias level. Options are "row_med" (per-column mean of
         points within 20 counts of the column's median), "surface" (fit 2D surface to
@@ -2187,7 +2199,7 @@ def subtract_wifes_interslit_bias(
     data_hdu : int, optional
         The HDU index for the data extension in the input images. Default is 0.
     slitlet_def_file : str, optional
-        The path to the pickle file defining the slitlet boundaries. Default is None.
+        The path to the JSON file defining the slitlet boundaries. Default is None.
     method : str, optional
         Method to fit interslit bias level. Options are "row_med" (per-column mean of
         points within 20 counts of the column's median), "surface" (fit 2D surface to
@@ -2705,8 +2717,8 @@ def derive_slitlet_profiles(
         plt.ylabel("y pixel")
         plt.show()
     # save it!
-    f3 = open(output_fn, "wb")
-    pickle.dump(final_slitlet_defs, f3)
+    f3 = open(output_fn, "w")
+    json.dump(final_slitlet_defs, f3, default=convert)
     f3.close()
     return
 
@@ -2815,8 +2827,8 @@ def interslice_cleanup(
     # ------------------------------------
     # 2) Get the slitlets boundaries
     if slitlet_def_file is not None:
-        f2 = open(slitlet_def_file, "rb")
-        init_slitlet_defs = pickle.load(f2)
+        f2 = open(slitlet_def_file, "r")
+        init_slitlet_defs = json.load(f2, object_hook=deconvert)
         f2.close()
     elif camera == "WiFeSRed":
         init_slitlet_defs = red_slitlet_defs
@@ -3106,11 +3118,8 @@ def wifes_slitlet_mef(
     # get slitlet definitions!
     # new ones if defined, otherwise use baseline values!
     if slitlet_def_file is not None:
-        f2 = open(slitlet_def_file, "rb")
-        try:
-            slitlet_defs = pickle.load(f2, fix_imports=True, encoding="latin")
-        except Exception:
-            slitlet_defs = pickle.load(f2)  # for python 2.7
+        f2 = open(slitlet_def_file, "r")
+        slitlet_defs = json.load(f2, object_hook=deconvert)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs
@@ -3352,8 +3361,8 @@ def wifes_slitlet_mef_ns(
     # get slitlet definitions!
     # new ones if defined, otherwise use baseline values!
     if slitlet_def_file is not None:
-        f2 = open(slitlet_def_file, "rb")
-        slitlet_defs = pickle.load(f2, fix_imports=True, encoding="latin")
+        f2 = open(slitlet_def_file, "r")
+        slitlet_defs = json.load(f2, object_hook=deconvert)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs

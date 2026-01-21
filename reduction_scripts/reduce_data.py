@@ -140,12 +140,12 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
         gargs['super_arc_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_arc_mef.fits")
 
         # Slitlet definition
-        gargs['slitlet_def_fn'] = os.path.join(master_dir, f"{calib_prefix}_slitlet_defs.pkl")
+        gargs['slitlet_def_fn'] = os.path.join(master_dir, f"{calib_prefix}_slitlet_defs.json")
         gargs['wsol_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_wave_soln.fits")
         gargs['wire_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_wire_soln.fits")
         gargs['flat_resp_fn'] = os.path.join(master_dir, f"{calib_prefix}_resp_mef.fits")
-        gargs['calib_fn'] = os.path.join(master_dir, f"{calib_prefix}_calib.pkl")
-        gargs['tellcorr_fn'] = os.path.join(master_dir, f"{calib_prefix}_tellcorr.pkl")
+        gargs['calib_fn'] = os.path.join(master_dir, f"{calib_prefix}_calib.json")
+        gargs['tellcorr_fn'] = os.path.join(master_dir, f"{calib_prefix}_tellcorr.json")
 
         # When reducing from master calibration files, if calibration files
         # are already among the master calibrations, skip their generation.
@@ -232,7 +232,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             output_plot = os.path.join(gargs['plot_dir_arm'], "raw_domeflat_check.png")
 
             flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw.fits")
-            slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+            slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.json")
             flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
         except Exception:
             pass
@@ -242,7 +242,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             title = 'Twilight Flatfield'
             output_plot = os.path.join(gargs['plot_dir_arm'], "raw_twiflat_check.png")
             flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_twiflat_raw.fits")
-            slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+            slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.json")
             flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
         except Exception:
             pass
