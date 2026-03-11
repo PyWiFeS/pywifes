@@ -18,16 +18,24 @@ def arguments():
     this_stack = stack()
     posname, kwname, args = getargvalues(this_stack[1][0])[-3:]
     posargs = args.pop(posname, [])
-    args.update(args.pop(kwname, []))
-    args_string = ', '.join([str(a).strip('\'')
-                             + (f"='{args[a]}'" if isinstance(args[a], str) else f"={args[a]}")
-                             for a in args]).rstrip(', ')
+    args.update(dict(args.pop(kwname, [])))
+    args_string = ", ".join(
+        [
+            str(a).strip("'")
+            + (f"='{args[a]}'" if isinstance(args[a], str) else f"={args[a]}")
+            for a in args
+        ]
+    ).rstrip(", ")
     if posargs:
-        posargs_string = ', ' + ', '.join([str(a).strip('\'')
-                                           + (f"='{args[a]}'" if isinstance(args[a], str) else f"={args[a]}")
-                                           for a in posargs]).rstrip(', ')
+        posargs_string = ", " + ", ".join(
+            [
+                str(a).strip("'")
+                + (f"='{args[a]}'" if isinstance(args[a], str) else f"={args[a]}")
+                for a in posargs
+            ]
+        ).rstrip(", ")
     else:
-        posargs_string = ''
+        posargs_string = ""
     return f"In file {this_stack[1][1]}, calling function {this_stack[1][3]}({args_string}{posargs_string})"
 
 
@@ -36,15 +44,15 @@ def fits_scale_from_bitpix(bitpix):
     Map common BITPIX header value to astropy.io.fits 'scale' argument.
     """
     if bitpix == -64:
-        return 'float64'
+        return "float64"
     elif bitpix == -32:
-        return 'float32'
+        return "float32"
     elif bitpix == 32:
-        return 'int32'
+        return "int32"
     elif bitpix == 16:
-        return 'int16'
+        return "int16"
     elif bitpix == 8:
-        return 'uint8'
+        return "uint8"
     else:
         print(f"BITPIX value {bitpix} has no mapping, using current data type")
         return None
@@ -57,15 +65,17 @@ def is_halfframe(inimg, data_hdu=0):
     Report whether this exposure (filename or HDUList) is a half-frame (a.k.a. Stellar mode) image.
     """
     if isinstance(inimg, str):
-        extnum = data_hdu + 1 if re.search('.fz', inimg) else data_hdu
+        extnum = data_hdu + 1 if re.search(".fz", inimg) else data_hdu
         header = pyfits.getheader(inimg, ext=extnum)
         detsec = header["DETSEC"]
     elif isinstance(inimg, pyfits.hdu.hdulist.HDUList):
         f = inimg
         detsec = f[data_hdu].header["DETSEC"]
     else:
-        raise ValueError(f"is_halfframe takes filepath or HDUList as inputs, not type {type(inimg)}")
-    ystart, ystop = [int(pix) for pix in detsec.split(",")[1].rstrip(']').split(":")]
+        raise ValueError(
+            f"is_halfframe takes filepath or HDUList as inputs, not type {type(inimg)}"
+        )
+    ystart, ystop = [int(pix) for pix in detsec.split(",")[1].rstrip("]").split(":")]
     return ystop - ystart + 1 == 2056
 
 
@@ -76,13 +86,15 @@ def is_nodshuffle(inimg):
     if isinstance(inimg, pyfits.header.Header):
         header = inimg
     elif isinstance(inimg, str):
-        extnum = 1 if re.search('.fz', inimg) else 0
+        extnum = 1 if re.search(".fz", inimg) else 0
         header = pyfits.getheader(inimg, ext=extnum)
     elif isinstance(inimg, pyfits.hdu.hdulist.HDUList):
-        extnum = 1 if re.search('.fz', inimg.filename()) else 0
+        extnum = 1 if re.search(".fz", inimg.filename()) else 0
         header = inimg[extnum].header
     else:
-        raise TypeError(f"The is_nodshuffle function takes headers, filenames, or HDULists; given {type(inimg)}")
+        raise TypeError(
+            f"The is_nodshuffle function takes headers, filenames, or HDULists; given {type(inimg)}"
+        )
     ns = header["WIFESOBS"]
     return ns == "NodAndShuffle"
 
@@ -115,14 +127,16 @@ def is_taros(inimg):
     if isinstance(inimg, pyfits.header.Header):
         header = inimg
     elif isinstance(inimg, str):
-        extnum = 1 if re.search('.fz', inimg) else 0
+        extnum = 1 if re.search(".fz", inimg) else 0
         header = pyfits.getheader(inimg, ext=extnum)
     elif isinstance(inimg, pyfits.hdu.hdulist.HDUList):
-        extnum = 1 if re.search('.fz', inimg.filename()) else 0
+        extnum = 1 if re.search(".fz", inimg.filename()) else 0
         header = inimg[extnum].header
     else:
-        raise TypeError(f"The is_taros function takes headers, filenames, or HDULists; given {type(inimg)}")
-    return 'OBSEQID' in header
+        raise TypeError(
+            f"The is_taros function takes headers, filenames, or HDULists; given {type(inimg)}"
+        )
+    return "OBSEQID" in header
 
 
 def hl_envelopes_idx(s, dmin=1, dmax=1, split=False, as_bool=False):
@@ -161,9 +175,13 @@ def hl_envelopes_idx(s, dmin=1, dmax=1, split=False, as_bool=False):
         lmax = lmax[s[lmax] > s_mid]
 
     # global min of dmin-chunks of locals min
-    lmin = lmin[[i + numpy.argmin(s[lmin[i:i + dmin]]) for i in range(0, len(lmin), dmin)]]
+    lmin = lmin[
+        [i + numpy.argmin(s[lmin[i : i + dmin]]) for i in range(0, len(lmin), dmin)]
+    ]
     # global max of dmax-chunks of locals max
-    lmax = lmax[[i + numpy.argmax(s[lmax[i:i + dmax]]) for i in range(0, len(lmax), dmax)]]
+    lmax = lmax[
+        [i + numpy.argmax(s[lmax[i : i + dmax]]) for i in range(0, len(lmax), dmax)]
+    ]
 
     if as_bool:
         lmin = numpy.isin(numpy.arange(s.shape[0]), lmin)
@@ -204,14 +222,20 @@ def wifes_recipe(func):
         print("Start of WiFeS Recipe {}.".format(func.__name__))
         result = func(*args, **kwargs)
         duration = datetime.datetime.now() - start_time
-        print("End of WiFeS Recipe {}: took {} seconds.".format(func.__name__, duration.total_seconds()))
+        print(
+            "End of WiFeS Recipe {}: took {} seconds.".format(
+                func.__name__, duration.total_seconds()
+            )
+        )
         return result
+
     return wrapper
 
 
 # ------------------------------------------------------------------------
 # Function definition
 # ------------------------------------------------------------------------
+
 
 def move_files(src_dir_path, destination_dir_path, filenames):
     """
@@ -266,25 +290,38 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
             # Handle common file compression for raw data
             if re.search("\\.fz$", src_file):
                 dest_file = dest_file.rstrip(".fz")
-                if os.path.isfile(dest_file) \
-                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                if os.path.isfile(dest_file) and os.path.getmtime(
+                    src_file
+                ) < os.path.getmtime(dest_file):
                     continue
                 temph = pyfits.open(src_file)
-                pyfits.writeto(dest_file, data=temph[1].data, header=temph[1].header,
-                               output_verify="fix", overwrite=True)
+                pyfits.writeto(
+                    dest_file,
+                    data=temph[1].data,
+                    header=temph[1].header,
+                    output_verify="fix",
+                    overwrite=True,
+                )
                 temph.close()
             elif re.search("\\.gz$", src_file):
                 dest_file = dest_file.rstrip(".gz")
-                if os.path.isfile(dest_file) \
-                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                if os.path.isfile(dest_file) and os.path.getmtime(
+                    src_file
+                ) < os.path.getmtime(dest_file):
                     continue
                 temph = pyfits.open(src_file)
-                pyfits.writeto(dest_file, data=temph[0].data, header=temph[0].header,
-                               output_verify="fix", overwrite=True)
+                pyfits.writeto(
+                    dest_file,
+                    data=temph[0].data,
+                    header=temph[0].header,
+                    output_verify="fix",
+                    overwrite=True,
+                )
                 temph.close()
             else:
-                if os.path.isfile(dest_file) \
-                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                if os.path.isfile(dest_file) and os.path.getmtime(
+                    src_file
+                ) < os.path.getmtime(dest_file):
                     continue
                 shutil.copy(src_file, dest_file)
     except Exception as e:
@@ -340,7 +377,7 @@ def load_config_file(filename):
 
 # Update header
 def set_header(filename, kw, kw_value, data_hdu=0):
-    fh = pyfits.open(filename, mode='update')
+    fh = pyfits.open(filename, mode="update")
     fh[data_hdu].header[kw] = kw_value
     fh.close()
 
@@ -554,5 +591,6 @@ def get_primary_std_obs_list(metadata, stdtype="all"):
         raise ValueError("Standard star type not understood")
     print(f"Primary standard observation list ({stdtype}): {std_obs_list}")
     return std_obs_list
+
 
 # ------------------------------------------------------------------------
