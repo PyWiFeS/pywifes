@@ -398,7 +398,7 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
     for header in headers:
         if wave_data is None:
             # Update axis 1 WCS information to match wavelength solution (axis 3)
-            header["CDELT1"] = header["CDELT3"]
+            header["CDELT1"] = (header["CDELT3"], "Wavelength step")
             header["CRPIX1"] = header["CRPIX3"]
             header["CRVAL1"] = header["CRVAL3"]
             header["CUNIT1"] = "Angstrom"
@@ -406,7 +406,7 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
             header["NAXIS1"] = header["NAXIS3"]
         else:
             # Wavelengths provided in separate extension
-            header["CDELT1"] = 1
+            header["CDELT1"] = (1, "")
             header["CRPIX1"] = 1
             header["CRVAL1"] = 1
             header["CUNIT1"] = "pixel"

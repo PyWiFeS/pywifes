@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [main - 2.3.0] - 2026-01-21
+## [main - 2.3.0] - 2026-05-22
 
 Minor bugfixes and enhancements.
 
@@ -16,6 +16,10 @@ Minor bugfixes and enhancements.
 
 - JSON substitution for Pickles
   - Remove use of insecure pickle format
+
+- Bugfixes
+  - Restore functionality of `debug` flag in Python 3.13
+  - Correct header keyword comment for extracted spectra
 
 ## [main - 2.2.0] - 2025-11-27
 
