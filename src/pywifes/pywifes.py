@@ -4401,7 +4401,8 @@ def wifes_SG_response(
             intermed1 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
             intermed2 = signal.savgol_filter(intermed1, window_length=(window_factor * N), polyorder=3, mode='nearest')
 
-            pixel_response[i, row, :] = this_row / numpy.power(10, intermed2)
+            # pixel_response[i, row, :] = this_row / numpy.power(10, intermed2)
+            pixel_response[i, row, :] = this_row / 1e4
 
             if row == (orig_spec_data.shape[0] // 2):
                 # Interactive plot: show the middle spectrum of each slit
