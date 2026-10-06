@@ -16,26 +16,14 @@ from pywifes import optical_model as om
 from pywifes import quality_plots as qp
 from pywifes.mpfit import mpfit
 from pywifes.wifes_metadata import __version__, metadata_dir
-from pywifes.wifes_utils import arguments, is_halfframe, is_taros
+from pywifes.wifes_utils import arguments, convert_to_JSON, deconvert_from_JSON, is_halfframe, is_taros
 
 from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
 
-def convert(x):
-    if hasattr(x, "tolist"):  # numpy arrays have this
-        return {"$array": x.tolist()}  # Make a tagged object
-    raise TypeError(x)
-
-
-def deconvert(x):
-    if len(x) == 1:  # Might be a tagged object...
-        key, value = next(iter(x.items()))  # Grab the tag and value
-        if key == "$array":  # If the tag is correct,
-            return numpy.array(value)  # cast back to array
-    return x
 
 # ------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.json"), "r")
-wifes_metadata = json.load(f0, object_hook=deconvert)
+wifes_metadata = json.load(f0, object_hook=deconvert_from_JSON)
 f0.close()
 base_wsols = wifes_metadata["baseline_wsols"]
 all_ref_lines = wifes_metadata["ref_linelists"]
@@ -1334,7 +1322,7 @@ def save_found_lines(
         }
         fitted_lines.append(new_dict)
     f = open(out_file, "w")
-    json.dump(fitted_lines, f, default=convert)
+    json.dump(fitted_lines, f, default=convert_to_JSON)
     f.close()
     return
 

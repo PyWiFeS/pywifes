@@ -594,3 +594,19 @@ def get_primary_std_obs_list(metadata, stdtype="all"):
 
 
 # ------------------------------------------------------------------------
+
+
+# JSON converter from numpy arrays
+def convert_to_JSON(x):
+    if isinstance(x, numpy.ndarray):  # numpy arrays have this
+        return {"$array": x.tolist()}  # Make a tagged object
+    raise TypeError(x)
+
+
+# JSON converter back to numpy arrays
+def deconvert_from_JSON(x):
+    if len(x) == 1 and hasattr(x, "items"):  # Might be a tagged object...
+        key, value = next(iter(x.items()))  # Grab the tag and value
+        if key == "$array":  # If the tag is correct,
+            return numpy.array(value)  # cast back to array
+    return x

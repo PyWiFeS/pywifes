@@ -21,29 +21,22 @@ from pywifes.wifes_metadata import __version__, metadata_dir
 from pywifes.wifes_imtrans import transform_data, detransform_data
 from pywifes.wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
 from pywifes.wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
-from pywifes.wifes_utils import arguments, fits_scale_from_bitpix, is_halfframe, is_taros, nan_helper
+from pywifes.wifes_utils import (
+    arguments,
+    convert_to_JSON,
+    deconvert_from_JSON,
+    fits_scale_from_bitpix,
+    is_halfframe,
+    is_taros,
+    nan_helper,
+)
 from pywifes.mpfit import mpfit
-
-# JSON converter from numpy arrays
-def convert(x):
-    if hasattr(x, "tolist"):  # numpy arrays have this
-        return {"$array": x.tolist()}  # Make a tagged object
-    raise TypeError(x)
-
-
-# JSON converter back to numpy arrays 
-def deconvert(x):
-    if len(x) == 1:  # Might be a tagged object...
-        key, value = next(iter(x.items()))  # Grab the tag and value
-        if key == "$array":  # If the tag is correct,
-            return numpy.array(value)  # cast back to array
-    return x
 
 # ------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
 try:
     f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.json"), "r")
-    wifes_metadata = json.load(f0, object_hook=deconvert)
+    wifes_metadata = json.load(f0, object_hook=deconvert_from_JSON)
     f0.close()
 except Exception as e:
     print(f"Failed to open or load wifes_metadata: {e}")
@@ -99,13 +92,13 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_", to_taros=False):
 
         # Cut the data according to the specified section
         if to_taros:
-            cut_data = data[2056 // bin_y:4112 // bin_y, :]
+            cut_data = data[2056 // bin_y : 4112 // bin_y, :]
 
             # Update the DETSEC in the header
             header["DETSEC"] = "[1:4202,2057:4112]"
 
         else:
-            cut_data = data[1028 // bin_y:3084 // bin_y, :]
+            cut_data = data[1028 // bin_y : 3084 // bin_y, :]
 
             # Update the DETSEC in the header
             header["DETSEC"] = "[1:4202,1029:3084]"
@@ -161,8 +154,9 @@ def calib_to_half_frame(obs_metadata, temp_data_dir, to_taros=False):
             calib_fits = os.path.join(temp_data_dir, file_name + ".fits")
             if not is_halfframe(calib_fits):
 
-                cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix,
-                                       to_taros=to_taros)
+                cut_fits_to_half_frame(
+                    calib_fits, outimg_prefix=prefix, to_taros=to_taros
+                )
                 obs_metadata[calib_type][index] = prefix + file_name
 
     # Check the standard star separately because the dictionary has a slightly
@@ -218,7 +212,9 @@ def single_centroid_prof_fit(
     xfit = x[ifit_lo:ifit_hi]
     yfit = y[ifit_lo:ifit_hi]
     new_xctr = numpy.nansum(xfit * (yfit**2)) / numpy.nansum((yfit**2))
-    new_x2 = numpy.nansum(((xfit - new_xctr) ** 2) * (yfit**2)) / numpy.nansum((yfit**2))
+    new_x2 = numpy.nansum(((xfit - new_xctr) ** 2) * (yfit**2)) / numpy.nansum(
+        (yfit**2)
+    )
     new_rms = new_x2**0.5
     new_sig = new_rms / 2.235
     if return_width:
@@ -239,11 +235,23 @@ def blockwise_mean_3D(A, S):
 
 
 # ------------------------------------------------------------------------
-def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None,
-              data_hdu=0, kwstring=None, commstring=None, outvarimg=None, sregion=None,
-              plot=False, plot_dir='.', save_prefix='imcombine_inputs',
-              interactive_plot=False, debug=False,
-              ):
+def imcombine(
+    inimg_list,
+    outimg,
+    method="median",
+    nonzero_thresh=100.0,
+    scale=None,
+    data_hdu=0,
+    kwstring=None,
+    commstring=None,
+    outvarimg=None,
+    sregion=None,
+    plot=False,
+    plot_dir=".",
+    save_prefix="imcombine_inputs",
+    interactive_plot=False,
+    debug=False,
+):
     """
     Combine multiple images into a single image using a specified method.
 
@@ -301,7 +309,9 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     bin_x, bin_y = [int(b) for b in f[data_hdu].header["CCDSUM"].split()]
 
     nimg = len(inimg_list)
-    midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) and is_halfframe(inimg_list[0]) else 0
+    midrow_shift = (
+        80 // bin_y if is_taros(inimg_list[0]) and is_halfframe(inimg_list[0]) else 0
+    )
     try:
         scale_factor = numpy.ones(nimg)
         if scale is not None:
@@ -317,27 +327,37 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                 else:
                     sreg_min, sreg_max = [int(s) for s in sregion]
                 if scale == "median":
-                    scale_factor[i] = numpy.nanmedian(new_data[:, sreg_min:sreg_max], )
+                    scale_factor[i] = numpy.nanmedian(
+                        new_data[:, sreg_min:sreg_max],
+                    )
                 elif scale == "median_nonzero":
-                    nonzero_inds = numpy.nonzero(new_data[:, sreg_min:sreg_max] > nonzero_thresh)
-                    scale_factor[i] = numpy.nanmedian(new_data[:, sreg_min:sreg_max][nonzero_inds])
+                    nonzero_inds = numpy.nonzero(
+                        new_data[:, sreg_min:sreg_max] > nonzero_thresh
+                    )
+                    scale_factor[i] = numpy.nanmedian(
+                        new_data[:, sreg_min:sreg_max][nonzero_inds]
+                    )
                 elif scale == "exptime":
                     scale_factor[i] = f[data_hdu].header["EXPTIME"]
                 elif re.match("percentile", scale):
                     perc = float(scale.split("percentile")[1])
-                    scale_factor[i] = numpy.nanpercentile(new_data[:, sreg_min:sreg_max], perc)
+                    scale_factor[i] = numpy.nanpercentile(
+                        new_data[:, sreg_min:sreg_max], perc
+                    )
                 elif scale == "midrow_ratio":
                     if i == 0:
                         scale_factor[i] = 1.0
                     else:
-                        scale_factor[i] = numpy.nanmedian(new_data[new_data.shape[0] // 2 - midrow_shift, :] / midrow)
+                        scale_factor[i] = numpy.nanmedian(
+                            new_data[new_data.shape[0] // 2 - midrow_shift, :] / midrow
+                        )
                 else:
                     raise ValueError("scaling method not yet supported")
                 if debug:
                     print(f"Scaling down image {inimg_list[i]} by {scale_factor[i]}")
         ny, nx = numpy.shape(orig_data)
         # chunk in x-axis if more than equivalent of 5 unbinned full-frame images
-        chunks = int(numpy.ceil(nimg / (5. * bin_x * 4112. / ny)))
+        chunks = int(numpy.ceil(nimg / (5.0 * bin_x * 4112.0 / ny)))
         coadd_data = numpy.zeros_like(orig_data)
         if outvarimg is not None:
             var_arr = numpy.zeros_like(orig_data)
@@ -357,7 +377,14 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                 new_data = f[data_hdu].data[:, xmin:xmax]
                 if ch == 0:
                     exptime_list.append(f[data_hdu].header["EXPTIME"])
-                    if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
+                    if f[data_hdu].header["IMAGETYP"].upper() in [
+                        "ARC",
+                        "BIAS",
+                        "FLAT",
+                        "SKYFLAT",
+                        "WIRE",
+                        "ZERO",
+                    ]:
                         airmass_list.append(1.0)
                     else:
                         try:
@@ -381,16 +408,47 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                 ax2.set_xlabel("pixel")
                 ax1.set_ylabel(f"Counts with {offset}*i offsets")
                 ax2.set_ylabel("Counts as scaled")
-                ax1.set_title(f"{nimg} inputs ({scale}-scaled) for\n{os.path.basename(outimg)} ({method}-combined)")
+                ax1.set_title(
+                    f"{nimg} inputs ({scale}-scaled) for\n{os.path.basename(outimg)} ({method}-combined)"
+                )
                 if interactive_plot:
                     plt.show()
                 else:
                     ax1.set_xlim(0, coadd_arr.shape[1] // 4)
-                    ax1.set_ylim(numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, 0:coadd_arr.shape[1] // 4, :], 1),
-                                 numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, 0:coadd_arr.shape[1] // 4, :] + offset * nimg, 99))
+                    ax1.set_ylim(
+                        numpy.nanpercentile(
+                            coadd_arr[
+                                ny // 2 - midrow_shift, 0 : coadd_arr.shape[1] // 4, :
+                            ],
+                            1,
+                        ),
+                        numpy.nanpercentile(
+                            coadd_arr[
+                                ny // 2 - midrow_shift, 0 : coadd_arr.shape[1] // 4, :
+                            ]
+                            + offset * nimg,
+                            99,
+                        ),
+                    )
                     ax2.set_xlim(int(0.75 * coadd_arr.shape[1]), coadd_arr.shape[1])
-                    ax2.set_ylim(numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :], 1),
-                                 numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :], 99))
+                    ax2.set_ylim(
+                        numpy.nanpercentile(
+                            coadd_arr[
+                                ny // 2 - midrow_shift,
+                                int(0.75 * coadd_arr.shape[1]) : coadd_arr.shape[1],
+                                :,
+                            ],
+                            1,
+                        ),
+                        numpy.nanpercentile(
+                            coadd_arr[
+                                ny // 2 - midrow_shift,
+                                int(0.75 * coadd_arr.shape[1]) : coadd_arr.shape[1],
+                                :,
+                            ],
+                            99,
+                        ),
+                    )
                     plt.tight_layout()
                     if chunks > 1:
                         plot_name = f"{save_prefix}_chunk{ch+1}.png"
@@ -429,11 +487,17 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
         outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
         outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
         outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-        outfits[data_hdu].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+        outfits[data_hdu].header.set(
+            "AIRMASS", numpy.nanmean(numpy.array(airmass_list))
+        )
     # (5) write to outfile!
     outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
     if kwstring is not None and commstring is not None:
-        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} combined")
+        outfits[data_hdu].header.set(
+            f"PYW{kwstring[:5].upper()}",
+            nimg,
+            f"PyWiFeS: number of {commstring[:30]} combined",
+        )
     outfits.writeto(outimg, overwrite=True)
     # write the variance image, if requested
     if outvarimg is not None:
@@ -495,9 +559,11 @@ def imcombine_mef(
     dq_hdu_list = list(range(2 * nslits + 1, 3 * nslits + 1))
     n_ext = len(f)
 
-    for data_hdu, hdu_type in list(zip(data_hdu_list, ('data' for _ in data_hdu_list))) \
-            + list(zip(var_hdu_list, ('var' for _ in var_hdu_list))) \
-            + list(zip(dq_hdu_list, ('dq' for _ in dq_hdu_list))):
+    for data_hdu, hdu_type in (
+        list(zip(data_hdu_list, ("data" for _ in data_hdu_list)))
+        + list(zip(var_hdu_list, ("var" for _ in var_hdu_list)))
+        + list(zip(dq_hdu_list, ("dq" for _ in dq_hdu_list)))
+    ):
         orig_data = f[data_hdu].data
         ny, nx = numpy.shape(orig_data)
         coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
@@ -507,7 +573,7 @@ def imcombine_mef(
             new_data = f2[data_hdu].data
             exptime = f2[data_hdu].header["EXPTIME"]
             f2.close()
-            if hdu_type == 'dq':
+            if hdu_type == "dq":
                 scale_factor = 1
             else:
                 if scale is None:
@@ -521,7 +587,7 @@ def imcombine_mef(
             coadd_arr[:, :, i] = new_data / scale_factor
             gc.collect()
         # now combine
-        if hdu_type == 'data':
+        if hdu_type == "data":
             if method == "median":
                 coadd_data = numpy.nanmedian(coadd_arr, axis=2)
             elif method == "sum":
@@ -536,7 +602,7 @@ def imcombine_mef(
                 raise ValueError(f"combine method '{method}' not yet supported")
             outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
             outfits[data_hdu].scale("float32")
-        elif hdu_type == 'var':
+        elif hdu_type == "var":
             if method == "median":
                 # Not formally correct, but perhaps not too bad
                 coadd_data = numpy.nanmedian(coadd_arr, axis=2)
@@ -552,7 +618,7 @@ def imcombine_mef(
                 raise ValueError(f"combine method '{method}' not yet supported")
             outfits[data_hdu].data = coadd_data.astype("float64", casting="same_kind")
             outfits[data_hdu].scale("float64")
-        elif hdu_type == 'dq':
+        elif hdu_type == "dq":
             coadd_data = numpy.nansum(coadd_arr, axis=2)
             # trim data beyond range
             coadd_data[coadd_data > 32767] = 32767
@@ -594,7 +660,9 @@ def imcombine_mef(
             except Exception:
                 pass
             if len(airmass_list) > 0:
-                outfits[i].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+                outfits[i].header.set(
+                    "AIRMASS", numpy.nanmean(numpy.array(airmass_list))
+                )
     # Fix effective exposure time if scaled by EXPTIME
     if scale == "exptime":
         if method == "median":
@@ -602,12 +670,18 @@ def imcombine_mef(
         else:
             new_exptime = float(nimg)
         for i in range(n_ext):
-            outfits[i].header.set("EXPTIME", new_exptime, "Effective exposure time after scaling")
+            outfits[i].header.set(
+                "EXPTIME", new_exptime, "Effective exposure time after scaling"
+            )
 
     # (5) write to outfile!
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWCONUM", nimg, "PyWiFeS: number of coadded images")
-    outfits[0].header.set("PYWCOSCL", 'None' if scale is None else scale, "PyWiFeS: scaling prior to coadd")
+    outfits[0].header.set(
+        "PYWCOSCL",
+        "None" if scale is None else scale,
+        "PyWiFeS: scaling prior to coadd",
+    )
     outfits[0].header.set("PYWCOMTH", method, "PyWiFeS: method for coadd")
     outfits.writeto(outimg, overwrite=True)
     f.close()
@@ -719,8 +793,9 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
     return
 
 
-def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
-                       arg_scaled="second"):
+def scaled_imarith_mef(
+    inimg1, operator, inimg2, outimg, scale=None, arg_scaled="second"
+):
     """
     Combine two images using a specified operator and a scaling factor.
 
@@ -749,7 +824,9 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
         This function does not return any value. It writes the combined image to the output file.
     """
     if arg_scaled not in ["first", "second"]:
-        raise ValueError(f"Unknown arg_scaled value '{arg_scaled}'. Must be 'first' or 'second'.")
+        raise ValueError(
+            f"Unknown arg_scaled value '{arg_scaled}'. Must be 'first' or 'second'."
+        )
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
@@ -839,7 +916,9 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     if scale is not None:
         outfits[0].header.set("PYWARSCA", scale, "PyWiFeS: scaling in MEF arithmetic")
-        outfits[0].header.set("PYWARARG", arg_scaled, "PyWiFeS: argument scaled in MEF arithmetic")
+        outfits[0].header.set(
+            "PYWARARG", arg_scaled, "PyWiFeS: argument scaled in MEF arithmetic"
+        )
     outfits.writeto(outimg, overwrite=True)
     f1.close()
     f2.close()
@@ -872,11 +951,13 @@ def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
     f2 = pyfits.open(inimg2)
     outfits = pyfits.HDUList(f1)
     # determine datatype of output
-    bitpix1 = f1[data_hdu].header['BITPIX']
-    bitpix2 = f2[data_hdu].header['BITPIX']
+    bitpix1 = f1[data_hdu].header["BITPIX"]
+    bitpix2 = f2[data_hdu].header["BITPIX"]
     # write output as highest-bitcount floating point if either input is,
     # or hightest-bitcount integer if both integers
-    bitpix = min(bitpix1, bitpix2) if bitpix1 < 0 or bitpix2 < 0 else max(bitpix1, bitpix2)
+    bitpix = (
+        min(bitpix1, bitpix2) if bitpix1 < 0 or bitpix2 < 0 else max(bitpix1, bitpix2)
+    )
     orig_fits_scale = fits_scale_from_bitpix(bitpix)
     #
     data1 = f1[data_hdu].data
@@ -884,14 +965,19 @@ def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
     halfframe1 = is_halfframe(inimg1)
     halfframe2 = is_halfframe(inimg2)
     if halfframe1 and not halfframe2:
-        ymin, ymax = [int(b) for b in f1[data_hdu].header['DETSEC'].split(",")[1].rstrip(']').split(":")]
+        ymin, ymax = [
+            int(b)
+            for b in f1[data_hdu].header["DETSEC"].split(",")[1].rstrip("]").split(":")
+        ]
         # NB: this is not rebinning, just converting detector pixels to image pixels
         bin_y = int(f2[data_hdu].header["CCDSUM"].split()[1])
-        data2 = f2[data_hdu].data[ymin // bin_y:ymax // bin_y, :]
+        data2 = f2[data_hdu].data[ymin // bin_y : ymax // bin_y, :]
     elif halfframe1 == halfframe2:
         data2 = f2[data_hdu].data
     else:
-        raise ValueError(f"Cannot imarith when first image ({inimg1}) is full frame and second image ({inimg2}) is half frame")
+        raise ValueError(
+            f"Cannot imarith when first image ({inimg1}) is full frame and second image ({inimg2}) is half frame"
+        )
 
     # do the desired operation
     if operator == "+":
@@ -952,7 +1038,7 @@ def imarith_float_mef(inimg1, operator, scale, outimg):
     # PART 1 - data HDUs
     for data_hdu in data_hdu_list:
         # determine datatype of output
-        bitpix = f1[data_hdu].header['BITPIX']
+        bitpix = f1[data_hdu].header["BITPIX"]
         orig_fits_scale = fits_scale_from_bitpix(bitpix)
         #
         data1 = f1[data_hdu].data
@@ -975,7 +1061,7 @@ def imarith_float_mef(inimg1, operator, scale, outimg):
         var_hdu = var_hdu_list[i]
         data_hdu = data_hdu_list[i]
         # determine datatype of output
-        bitpix = f1[var_hdu].header['BITPIX']
+        bitpix = f1[var_hdu].header["BITPIX"]
         orig_fits_scale = fits_scale_from_bitpix(bitpix)
         #
         var1 = f1[var_hdu].data
@@ -1356,9 +1442,9 @@ def make_overscan_mask(dflat, omask, data_hdu=0, debug=False):
         print(arguments())
     fdata = pyfits.getdata(dflat, ext=data_hdu)
     ysize, xsize = fdata.shape
-    fslice = numpy.nanmedian(fdata[:, int(0.33 * xsize):int(0.67 * xsize)], axis=1)
+    fslice = numpy.nanmedian(fdata[:, int(0.33 * xsize) : int(0.67 * xsize)], axis=1)
     flim = numpy.mean(numpy.nanpercentile(fslice, [33, 67]))
-    mask_idx = (fslice < flim)
+    mask_idx = fslice < flim
     outmask = numpy.zeros((ysize,), dtype=int)
     outmask[mask_idx] = 1
     # De-select edge pixels
@@ -1368,7 +1454,7 @@ def make_overscan_mask(dflat, omask, data_hdu=0, debug=False):
     outmask = outmask * numpy.roll(outmask, 5) * numpy.roll(outmask, -5)
 
     hdu = pyfits.PrimaryHDU(data=outmask)
-    hdu.scale('int16')
+    hdu.scale("int16")
     hdu.writeto(omask, overwrite=True)
 
 
@@ -1405,11 +1491,13 @@ def correct_readout_shift(indata, verbose=False):
     # already fixed.
     rowmin = numpy.argmin(local_data[4:-4], axis=1)
     if numpy.any(rowmin != redmin):
-        local_data = local_data.flatten(order='C')
-        shift = redmin - numpy.argmin(local_data[:orig_shape[1]])
+        local_data = local_data.flatten(order="C")
+        shift = redmin - numpy.argmin(local_data[: orig_shape[1]])
         if verbose:
             print(f"Shifting data by {shift} pixels")
-        return numpy.roll(indata.flatten(order='C'), shift).reshape(orig_shape, order='C')
+        return numpy.roll(indata.flatten(order="C"), shift).reshape(
+            orig_shape, order="C"
+        )
     return indata
 
 
@@ -1516,17 +1604,24 @@ def subtract_overscan(
         omask = pyfits.getdata(omaskfile)
 
     utc_date = int(orig_hdr["DATE-OBS"].split("T")[0].replace("-", ""))
-    if (utc_date >= 20220613 and utc_date < 20230731
-            and not is_taros(orig_hdr)
-            and orig_hdr["CAMERA"] == "WiFeSRed"):
+    if (
+        utc_date >= 20220613
+        and utc_date < 20230731
+        and not is_taros(orig_hdr)
+        and orig_hdr["CAMERA"] == "WiFeSRed"
+    ):
         # Check for red arm pixel shifts in early Automated era readouts. Correct, if present.
         if verbose:
             print(f"Checking {inimg} for pixel shift")
         orig_data = correct_readout_shift(orig_data, verbose=verbose)
 
     # (2) create data array - MUST QUERY FOR HALF-FRAME
-    x_sci_size = numpy.sum([ff[3] - ff[2] if ff[0] == fmt_sci_reg[0][0] else 0 for ff in fmt_sci_reg])
-    y_sci_size = numpy.sum([ff[1] - ff[0] if ff[2] == fmt_sci_reg[0][2] else 0 for ff in fmt_sci_reg])
+    x_sci_size = numpy.sum(
+        [ff[3] - ff[2] if ff[0] == fmt_sci_reg[0][0] else 0 for ff in fmt_sci_reg]
+    )
+    y_sci_size = numpy.sum(
+        [ff[1] - ff[0] if ff[2] == fmt_sci_reg[0][2] else 0 for ff in fmt_sci_reg]
+    )
     halfframe = is_halfframe(inimg, data_hdu=data_hdu)
     if halfframe:
         y_sci_size //= 2
@@ -1547,51 +1642,92 @@ def subtract_overscan(
             ovs = fmt_ovs_reg[i]
             sci = fmt_sci_reg[i]
 
-        curr_data = orig_data[det[0]:det[1], det[2]:det[3]]
+        curr_data = orig_data[det[0] : det[1], det[2] : det[3]]
         # (3) determine overscan, subtract from data
-        curr_ovs_data = orig_data[ovs[0]:ovs[1], ovs[2]:ovs[3]]
+        curr_ovs_data = orig_data[ovs[0] : ovs[1], ovs[2] : ovs[3]]
 
         if omaskfile is not None:
-            curr_omask = omask[ovs[0]:ovs[1]]
+            curr_omask = omask[ovs[0] : ovs[1]]
             ovs_y = curr_ovs_data.shape[0]
-            meancounts = numpy.nanmean(orig_data[sci[0]:sci[1], sci[2]:sci[3]], axis=1)
+            meancounts = numpy.nanmean(
+                orig_data[sci[0] : sci[1], sci[2] : sci[3]], axis=1
+            )
             if interactive_plot:
-                plt.scatter(numpy.arange(meancounts.shape[0]), meancounts - numpy.nanmin(meancounts))
+                plt.scatter(
+                    numpy.arange(meancounts.shape[0]),
+                    meancounts - numpy.nanmin(meancounts),
+                )
                 plt.axhline(omask_threshold)
                 plt.title(f"Imagetype {imagetype}")
-                plt.ylabel('Science region mean counts per row (relative to smallest row)')
-                plt.xlabel('Y pixel')
+                plt.ylabel(
+                    "Science region mean counts per row (relative to smallest row)"
+                )
+                plt.xlabel("Y pixel")
                 plt.show()
-            high_rows = (meancounts - numpy.nanmin(meancounts) > omask_threshold)
+            high_rows = meancounts - numpy.nanmin(meancounts) > omask_threshold
             nrows_high = numpy.count_nonzero(high_rows)
             if nrows_high > 0.5 * ovs_y:
-                print(f"WARNING: Likely light leak in {inimg}. Not masking high rows in overscan.")
+                print(
+                    f"WARNING: Likely light leak in {inimg}. Not masking high rows in overscan."
+                )
                 omaskfile = None
             elif nrows_high > 0:
-                masked_ovs_data = numpy.nanmedian(curr_ovs_data, axis=1)[numpy.nonzero(curr_omask * ~high_rows)]
-                masked_ovs_rows = numpy.arange(ovs_y)[numpy.nonzero(curr_omask * ~high_rows)]
-                ch_coeff = numpy.polynomial.chebyshev.chebfit(x=masked_ovs_rows, y=masked_ovs_data.T, deg=7)
-                curr_ovs_model = numpy.polynomial.chebyshev.chebval(x=numpy.arange(curr_ovs_data.shape[0]), c=ch_coeff).T
+                masked_ovs_data = numpy.nanmedian(curr_ovs_data, axis=1)[
+                    numpy.nonzero(curr_omask * ~high_rows)
+                ]
+                masked_ovs_rows = numpy.arange(ovs_y)[
+                    numpy.nonzero(curr_omask * ~high_rows)
+                ]
+                ch_coeff = numpy.polynomial.chebyshev.chebfit(
+                    x=masked_ovs_rows, y=masked_ovs_data.T, deg=7
+                )
+                curr_ovs_model = numpy.polynomial.chebyshev.chebval(
+                    x=numpy.arange(curr_ovs_data.shape[0]), c=ch_coeff
+                ).T
                 curr_ovs_median = numpy.nanmedian(curr_ovs_data, axis=1)
-                curr_ovs_val = numpy.where(curr_omask + ~high_rows, curr_ovs_median, curr_ovs_model)
+                curr_ovs_val = numpy.where(
+                    curr_omask + ~high_rows, curr_ovs_median, curr_ovs_model
+                )
                 if interactive_plot:
-                    plt.scatter(numpy.arange(ovs_y), curr_ovs_median, c='k', label='Original data')
-                    plt.plot(numpy.arange(ovs_y), curr_ovs_model.T, color='green', label='Chebyshev fit')
-                    plt.scatter(numpy.arange(ovs_y), curr_ovs_val, c='b', label='Adopted overscan')
+                    plt.scatter(
+                        numpy.arange(ovs_y),
+                        curr_ovs_median,
+                        c="k",
+                        label="Original data",
+                    )
+                    plt.plot(
+                        numpy.arange(ovs_y),
+                        curr_ovs_model.T,
+                        color="green",
+                        label="Chebyshev fit",
+                    )
+                    plt.scatter(
+                        numpy.arange(ovs_y),
+                        curr_ovs_val,
+                        c="b",
+                        label="Adopted overscan",
+                    )
                     plt.title(f"{imagetype} - {os.path.basename(inimg)}")
-                    plt.ylabel('Overscan value (ADU)')
-                    plt.xlabel('Y pixel')
-                    plt.ylim(numpy.nanmin(curr_ovs_val) - 10, numpy.nanmax(curr_ovs_val) + 10)
+                    plt.ylabel("Overscan value (ADU)")
+                    plt.xlabel("Y pixel")
+                    plt.ylim(
+                        numpy.nanmin(curr_ovs_val) - 10, numpy.nanmax(curr_ovs_val) + 10
+                    )
                     plt.legend()
                     plt.show()
             else:
                 omaskfile = None
         if omaskfile is None:
             # Take mean of central 50% of values per row
-            olim = [curr_ovs_data.shape[1] // 4, int(numpy.ceil(curr_ovs_data.shape[1] * 0.75)) + 1]
-            curr_ovs_val = numpy.nanmean(numpy.sort(curr_ovs_data, axis=1)[:, olim[0]:olim[1]], axis=1)
+            olim = [
+                curr_ovs_data.shape[1] // 4,
+                int(numpy.ceil(curr_ovs_data.shape[1] * 0.75)) + 1,
+            ]
+            curr_ovs_val = numpy.nanmean(
+                numpy.sort(curr_ovs_data, axis=1)[:, olim[0] : olim[1]], axis=1
+            )
 
-        subbed_data[sci[0]:sci[1], sci[2]:sci[3]] = gain[i] * (
+        subbed_data[sci[0] : sci[1], sci[2] : sci[3]] = gain[i] * (
             curr_data - curr_ovs_val[:, numpy.newaxis]
         )
         avg_oscan.append(numpy.mean(curr_ovs_val))
@@ -1607,15 +1743,21 @@ def subtract_overscan(
 
     # (3c) - if requested, ensure binning aligns with science data
     if match_binning is not None and match_binning != orig_hdr["CCDSUM"]:
-        print(f"Adjusting binning of {os.path.basename(inimg)} from {orig_hdr['CCDSUM']} to {match_binning}")
+        print(
+            f"Adjusting binning of {os.path.basename(inimg)} from {orig_hdr['CCDSUM']} to {match_binning}"
+        )
         out_bin = [int(b) for b in match_binning.split()]
         if out_bin[0] < bin_x:
             # Stretch the data in x
-            subbed_data = numpy.repeat(subbed_data, repeats=(bin_x // out_bin[0]), axis=1) / float(bin_x // out_bin[0])
+            subbed_data = numpy.repeat(
+                subbed_data, repeats=(bin_x // out_bin[0]), axis=1
+            ) / float(bin_x // out_bin[0])
             bin_x = out_bin[0]
         if out_bin[1] < bin_y:
             # Stretch the data in y
-            subbed_data = numpy.repeat(subbed_data, repeats=(bin_y // out_bin[1]), axis=0) / float(bin_y // out_bin[1])
+            subbed_data = numpy.repeat(
+                subbed_data, repeats=(bin_y // out_bin[1]), axis=0
+            ) / float(bin_y // out_bin[1])
             bin_y = out_bin[1]
         elif out_bin[0] > bin_x or out_bin[1] > bin_y:
             # Block-sum the data.
@@ -1633,15 +1775,19 @@ def subtract_overscan(
     outfits[data_hdu].header.set("CCDSIZE", detsize_str)
     outfits[data_hdu].header.set("DATASEC", detsize_str)
     outfits[data_hdu].header.set("TRIMSEC", detsize_str)
-    outfits[data_hdu].header.set("RDNOISE", max(rdnoise), 'Read noise in electrons')
+    outfits[data_hdu].header.set("RDNOISE", max(rdnoise), "Read noise in electrons")
     outfits[data_hdu].header.set("GAIN", 1.0)
     outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
     if omaskfile is not None:
-        outfits[data_hdu].header.set('PYWOVERM', True, "PyWiFeS: used overscan mask")
-        outfits[data_hdu].header.set('PYWOVTHR', omask_threshold, "PyWiFeS: overscan mask threshold")
+        outfits[data_hdu].header.set("PYWOVERM", True, "PyWiFeS: used overscan mask")
+        outfits[data_hdu].header.set(
+            "PYWOVTHR", omask_threshold, "PyWiFeS: overscan mask threshold"
+        )
     else:
-        outfits[data_hdu].header.set('PYWOVERM', False, "PyWiFeS: used overscan mask")
-    outfits[data_hdu].header.set('PYWOSUB', numpy.mean(avg_oscan), "PyWiFeS: mean overscan subtracted")
+        outfits[data_hdu].header.set("PYWOVERM", False, "PyWiFeS: used overscan mask")
+    outfits[data_hdu].header.set(
+        "PYWOSUB", numpy.mean(avg_oscan), "PyWiFeS: mean overscan subtracted"
+    )
     outfits[data_hdu].data = subbed_data.astype("float32", casting="same_kind")
     outfits[data_hdu].scale("float32")
     # (5) write to outfile!
@@ -1650,8 +1796,17 @@ def subtract_overscan(
 
 
 # ------------------------------------------------------------------------
-def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
-                   interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
+def repair_bad_pix(
+    inimg,
+    outimg,
+    arm,
+    data_hdu=0,
+    flat_littrow=False,
+    interp_buffer=3,
+    interactive_plot=False,
+    verbose=False,
+    debug=False,
+):
     """
     Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD, OBJECT, and SKY frames.
@@ -1699,29 +1854,31 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
     # figure out binning
     bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
     # image type determines method to use
-    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD', 'SKY']:
-        method = 'nan'
+    if orig_hdr["IMAGETYP"].upper() in ["OBJECT", "STANDARD", "SKY"]:
+        method = "nan"
     else:
-        method = 'interp'
+        method = "interp"
 
     detsec = orig_hdr["DETSEC"]
-    y_veryfirst, y_verylast = [int(pix) - 1 for pix in
-                               detsec.split(",")[1].rstrip(']').split(":")]
+    y_veryfirst, y_verylast = [
+        int(pix) - 1 for pix in detsec.split(",")[1].rstrip("]").split(":")
+    ]
 
     # Structure: bad_data = [[yfirst, ylast, xfirst, xlast], [...]].
     # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming (p00.fits).
     # Limits are inclusive of the bad pixels on both ends of range.
     if arm == "blue":
-        bad_data = [[746, 4111, 1525, 1531],
-                    [2693, 3104, 3944, 3944],
-                    # cold pixels
-                    [3974, 4053, 900, 900],
-                    [2387, 2388, 2197, 2197],
-                    [909, 913, 1064, 1066],
-                    ]
+        bad_data = [
+            [746, 4111, 1525, 1531],
+            [2693, 3104, 3944, 3944],
+            # cold pixels
+            [3974, 4053, 900, 900],
+            [2387, 2388, 2197, 2197],
+            [909, 913, 1064, 1066],
+        ]
         # Mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over.
         # Regions are generous to accommodate lamp vs sky and thermal shifts.
-        if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+        if flat_littrow and orig_hdr["IMAGETYP"].upper() in ["FLAT", "SKYFLAT"]:
             littrow_data = [
                 [3965, 4040, 3115, 3140],
                 [3805, 3880, 3116, 3141],
@@ -1751,13 +1908,13 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
             ]
             # Choice of grating changes the ghost locations, but beam splitter
             # only shifts the position by a few pixels.
-            if orig_hdr['GRATINGB'] == 'B7000':
+            if orig_hdr["GRATINGB"] == "B7000":
                 for ll in littrow_data:
                     ll[0] -= 50
                     ll[1] -= 40
                     ll[2] -= 1110
                     ll[3] -= 1090
-            elif orig_hdr['GRATINGB'] == 'U7000':
+            elif orig_hdr["GRATINGB"] == "U7000":
                 for ll in littrow_data:
                     ll[0] -= 35
                     ll[1] -= 25
@@ -1765,34 +1922,35 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
                     ll[3] -= 1060
             bad_data.extend(littrow_data)
     elif arm == "red":
-        bad_data = [[0, 2707, 9, 11],
-                    [0, 3280, 773, 775],
-                    [0, 4111, 901, 904],
-                    [3978, 3986, 897, 906],
-                    [0, 3387, 939, 939],
-                    [0, 1787, 2273, 2273],
-                    # cold pixels
-                    [3759, 3762, 257, 260],
-                    [3373, 3376, 2382, 2385],
-                    [3323, 3323, 2511, 2511],
-                    [3319, 3319, 728, 728],
-                    [3114, 3120, 1402, 1407],
-                    [2944, 2949, 3702, 3706],
-                    [2966, 2968, 3747, 3749],
-                    [2684, 2685, 756, 757],
-                    [2361, 2361, 1489, 1489],
-                    [2249, 2251, 898, 899],
-                    [2013, 2016, 1149, 1153],
-                    [2017, 2017, 1151, 1153],
-                    [2044, 2046, 1261, 1263],
-                    [2037, 2039, 1825, 1826],
-                    [2040, 2040, 1826, 1826],
-                    [2036, 2036, 1826, 1826],
-                    [1558, 1558, 2430, 2430],
-                    [705, 708, 2184, 2189],
-                    [632, 635, 905, 905],
-                    [634, 636, 906, 906],
-                    ]
+        bad_data = [
+            [0, 2707, 9, 11],
+            [0, 3280, 773, 775],
+            [0, 4111, 901, 904],
+            [3978, 3986, 897, 906],
+            [0, 3387, 939, 939],
+            [0, 1787, 2273, 2273],
+            # cold pixels
+            [3759, 3762, 257, 260],
+            [3373, 3376, 2382, 2385],
+            [3323, 3323, 2511, 2511],
+            [3319, 3319, 728, 728],
+            [3114, 3120, 1402, 1407],
+            [2944, 2949, 3702, 3706],
+            [2966, 2968, 3747, 3749],
+            [2684, 2685, 756, 757],
+            [2361, 2361, 1489, 1489],
+            [2249, 2251, 898, 899],
+            [2013, 2016, 1149, 1153],
+            [2017, 2017, 1151, 1153],
+            [2044, 2046, 1261, 1263],
+            [2037, 2039, 1825, 1826],
+            [2040, 2040, 1826, 1826],
+            [2036, 2036, 1826, 1826],
+            [1558, 1558, 2430, 2430],
+            [705, 708, 2184, 2189],
+            [632, 635, 905, 905],
+            [634, 636, 906, 906],
+        ]
         if is_taros(inimg):
             # TAROS uses a red amplifier on the bottom edge of the CCD rather than the
             # top, so bad columns extend in the opposite direction.
@@ -1803,7 +1961,7 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
 
         # Mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over.
         # Regions are generous to accommodate lamp vs sky and thermal shifts.
-        if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+        if flat_littrow and orig_hdr["IMAGETYP"].upper() in ["FLAT", "SKYFLAT"]:
             littrow_data = [
                 [3963, 4038, 1502, 1532],
                 [3785, 3860, 1505, 1535],
@@ -1833,14 +1991,14 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
             ]
             # Choice of grating changes the ghost locations, but beam splitter
             # only shifts the position by a few pixels.
-            if orig_hdr['GRATINGR'] == 'R7000':
+            if orig_hdr["GRATINGR"] == "R7000":
                 # Falls completely on science slits.
                 for ll in littrow_data:
                     ll[0] -= 30
                     ll[1] -= 10
                     ll[2] += 480
                     ll[3] += 500
-            elif orig_hdr['GRATINGR'] == 'I7000':
+            elif orig_hdr["GRATINGR"] == "I7000":
                 # Falls completely on science slits in region of high fringing.
                 # Better to omit masking.
                 littrow_data = []
@@ -1860,33 +2018,44 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
         ylast //= bin_y
         xfirst //= bin_x
         xlast //= bin_x
-        if method == 'interp':
-            slice_lo = numpy.nanmedian(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
-            slice_hi = numpy.nanmedian(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
+        if method == "interp":
+            slice_lo = numpy.nanmedian(
+                orig_data[yfirst : ylast + 1, xfirst - 1 - interp_buffer : xfirst],
+                axis=1,
+            )
+            slice_hi = numpy.nanmedian(
+                orig_data[yfirst : ylast + 1, xlast + 1 : xlast + 2 + interp_buffer],
+                axis=1,
+            )
             if verbose:
-                print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
+                print(
+                    f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})"
+                )
             for this_x in numpy.arange(xfirst, xlast + 1):
-                interp_data[yfirst:ylast + 1, this_x] = (slice_hi - slice_lo) / ((xlast + 1.) - (xfirst - 1.)) * (this_x - (xfirst - 1.)) + slice_lo
-        elif method == 'nan':
+                interp_data[yfirst : ylast + 1, this_x] = (slice_hi - slice_lo) / (
+                    (xlast + 1.0) - (xfirst - 1.0)
+                ) * (this_x - (xfirst - 1.0)) + slice_lo
+        elif method == "nan":
             if verbose:
                 print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
-            interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
+            interp_data[yfirst : ylast + 1, xfirst : xlast + 1] = numpy.nan
     # Interpolate over any NaN pixels arising from saturation (excluding science images)
-    if method == 'interp':
+    if method == "interp":
         nan_rows = numpy.nonzero(numpy.isnan(interp_data))[0]
         if len(nan_rows) > 0:
             # loop over each row with at least one bad pixel and linearly interpolate across the gaps
             for row in sorted(set(nan_rows)):
-                interp_data[row, :][numpy.isnan(interp_data[row, :])] = \
-                    numpy.interp(numpy.where(numpy.isnan(interp_data[row, :]))[0],
-                                 numpy.where(numpy.isfinite(interp_data[row, :]))[0],
-                                 interp_data[row, :][numpy.isfinite(interp_data[row, :])])
+                interp_data[row, :][numpy.isnan(interp_data[row, :])] = numpy.interp(
+                    numpy.where(numpy.isnan(interp_data[row, :]))[0],
+                    numpy.where(numpy.isfinite(interp_data[row, :]))[0],
+                    interp_data[row, :][numpy.isfinite(interp_data[row, :])],
+                )
     if interactive_plot:
         fig, axs = plt.subplots(2, 1, figsize=(8, 6))
-        axs[0].imshow(orig_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
+        axs[0].imshow(orig_data, norm=colors.LogNorm(), cmap=cm["gist_ncar"])
         axs[0].set_title(f"Original - {orig_hdr['IMAGETYP'].upper()}")
-        axs[1].imshow(interp_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
-        axs[1].set_title('Repaired')
+        axs[1].imshow(interp_data, norm=colors.LogNorm(), cmap=cm["gist_ncar"])
+        axs[1].set_title("Repaired")
         plt.tight_layout()
         plt.show()
     # save it!
@@ -1951,7 +2120,7 @@ def fit_wifes_interslit_bias(
     interstice_mask = numpy.ones(numpy.shape(orig_data)[0])
     if slitlet_def_file is not None:
         f2 = open(slitlet_def_file, "r")
-        slitlet_defs = json.load(f2, object_hook=deconvert)
+        slitlet_defs = json.load(f2, object_hook=deconvert_from_JSON)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs
@@ -1993,8 +2162,8 @@ def fit_wifes_interslit_bias(
             curr_defs[3] + ybuff - offset,
         ]
         # everything in slitlet zone gets set to zero
-        interstice_map[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]] = 0
-        interstice_mask[mod_defs[2]:mod_defs[3]] = 0
+        interstice_map[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]] = 0
+        interstice_mask[mod_defs[2] : mod_defs[3]] = 0
     # ---------------------------
     # (2) from its epoch, determine if is 1-amp or 4-amp readout
     if camera == "WiFeSRed":
@@ -2031,9 +2200,9 @@ def fit_wifes_interslit_bias(
             reg = [init_reg[0], init_reg[1] - ny, init_reg[2], init_reg[3]]
         else:
             reg = init_reg
-        curr_data = orig_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1]
-        curr_map = interstice_map[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1]
-        curr_mask = interstice_mask[reg[0]:reg[1] + 1]
+        curr_data = orig_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1]
+        curr_map = interstice_map[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1]
+        curr_mask = interstice_mask[reg[0] : reg[1] + 1]
         ny, nx = numpy.shape(curr_data)
         linx = numpy.arange(nx, dtype="d")
         liny = numpy.arange(ny, dtype="d")
@@ -2057,7 +2226,7 @@ def fit_wifes_interslit_bias(
                     row_med[i] = numpy.nanmean(curr_col[good_inds])
             # row_med = numpy.nanmedian(curr_data, axis=0)
             bias_sub = row_med ** numpy.ones(numpy.shape(curr_data), dtype="d")
-            out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_sub
+            out_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1] = bias_sub
         elif method == "surface":
             curr_inds = numpy.nonzero(curr_map)
             fit_x = full_x[curr_inds].flatten()
@@ -2078,7 +2247,7 @@ def fit_wifes_interslit_bias(
                 y_polydeg,
             )
             bias_fvals = evaluate_wsol_poly(full_x, full_y, x_poly, y_poly)
-            out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_fvals
+            out_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1] = bias_fvals
             # PLOT IT!!!
             if interactive_plot:
                 randplot_data = numpy.random.permutation(len(fit_x))[:1000]
@@ -2109,7 +2278,7 @@ def fit_wifes_interslit_bias(
                 plt.show()
         elif method == "median":
             bias_val = numpy.nanmedian(curr_data[numpy.nonzero(curr_map)])
-            out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_val
+            out_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1] = bias_val
         else:
             print("only row_med, surface, and median methods currently supported")
     # ---------------------------
@@ -2303,7 +2472,7 @@ def generate_wifes_bias_fit(
     data_hdu=0,
     plot=True,
     plot_dir=".",
-    save_prefix='bias',
+    save_prefix="bias",
     verbose=False,
 ):
     """
@@ -2354,7 +2523,9 @@ def generate_wifes_bias_fit(
             ]
             # Currently not supported !
             if method == "fit":
-                raise ValueError("Bias frame not compatible with surface fitting (4 amps) !")
+                raise ValueError(
+                    "Bias frame not compatible with surface fitting (4 amps) !"
+                )
         else:
             # namps=1
             sci_regs = [[0, 4095 // bin_y, 0, 4095 // bin_x]]
@@ -2369,7 +2540,9 @@ def generate_wifes_bias_fit(
             ]
             # Currently not supported !
             if method == "fit":
-                raise ValueError("Bias frame not compatible with surface fitting (4 amps) !")
+                raise ValueError(
+                    "Bias frame not compatible with surface fitting (4 amps) !"
+                )
 
         else:
             # namps=1
@@ -2388,7 +2561,7 @@ def generate_wifes_bias_fit(
     out_data = numpy.zeros(numpy.shape(orig_data), dtype="float32")
     for i in range(len(sci_regs)):
         reg = sci_regs[i]
-        curr_data = orig_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1]
+        curr_data = orig_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1]
 
         ny, nx = numpy.shape(curr_data)
         linx = numpy.arange(nx, dtype="float32")
@@ -2413,7 +2586,7 @@ def generate_wifes_bias_fit(
             residual_blur = ndimage.gaussian_filter(residual, sigma=[50, 0])
             bias_sub += residual_blur
             # -----
-            out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_sub
+            out_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1] = bias_sub
 
         if method == "fit":
             # Fit the bias with an appropriate model
@@ -2486,7 +2659,7 @@ def generate_wifes_bias_fit(
                 print("I'll plot this one for sanity check...")
                 plot = True
 
-            out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = wifes_bias_model(
+            out_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1] = wifes_bias_model(
                 p1, full_x, camera
             )
         # Plot for test purposes ...
@@ -2502,17 +2675,33 @@ def generate_wifes_bias_fit(
             if method == "row_med":
                 row_med_bias = numpy.nanmean(out_data, axis=0)
                 plt.plot(linx, row_med_bias, "r-", label="row_med bias")
-                resid = numpy.nanmean(curr_data, axis=0) - numpy.nanmean(out_data, axis=0)
+                resid = numpy.nanmean(curr_data, axis=0) - numpy.nanmean(
+                    out_data, axis=0
+                )
                 plt.plot(
                     linx,
                     resid,
                     "g-",
                     label="residual",
                 )
-                lower_limit = numpy.nanmin([lower_limit, numpy.nanpercentile(row_med_bias, 0.2), numpy.nanpercentile(resid, 0.2)])
-                upper_limit = numpy.nanmax([upper_limit, numpy.nanpercentile(row_med_bias, 99.8), numpy.nanpercentile(resid, 99.8)])
+                lower_limit = numpy.nanmin(
+                    [
+                        lower_limit,
+                        numpy.nanpercentile(row_med_bias, 0.2),
+                        numpy.nanpercentile(resid, 0.2),
+                    ]
+                )
+                upper_limit = numpy.nanmax(
+                    [
+                        upper_limit,
+                        numpy.nanpercentile(row_med_bias, 99.8),
+                        numpy.nanpercentile(resid, 99.8),
+                    ]
+                )
             elif method == "fit":
-                resid = numpy.nanmean(curr_data, axis=0) - wifes_bias_model(p1, linx, camera)
+                resid = numpy.nanmean(curr_data, axis=0) - wifes_bias_model(
+                    p1, linx, camera
+                )
                 plt.plot(
                     linx,
                     resid,
@@ -2520,13 +2709,23 @@ def generate_wifes_bias_fit(
                     label="residual",
                 )
                 model_fit = wifes_bias_model(p1, linx, camera)
-                plt.plot(
-                    linx, model_fit, "r", label="model fit"
+                plt.plot(linx, model_fit, "r", label="model fit")
+                lower_limit = numpy.nanmin(
+                    [
+                        lower_limit,
+                        numpy.nanpercentile(resid, 0.2),
+                        numpy.nanpercentile(model_fit, 0.2),
+                    ]
                 )
-                lower_limit = numpy.nanmin([lower_limit, numpy.nanpercentile(resid, 0.2), numpy.nanpercentile(model_fit, 0.2)])
-                upper_limit = numpy.nanmax([upper_limit, numpy.nanpercentile(resid, 99.8), numpy.nanpercentile(model_fit, 99.8)])
+                upper_limit = numpy.nanmax(
+                    [
+                        upper_limit,
+                        numpy.nanpercentile(resid, 99.8),
+                        numpy.nanpercentile(model_fit, 99.8),
+                    ]
+                )
 
-            plt.axhline(0, numpy.nanmin(linx), numpy.nanmax(linx), color="k", ls='--')
+            plt.axhline(0, numpy.nanmin(linx), numpy.nanmax(linx), color="k", ls="--")
             plt.xlabel("x [pixels]")
             plt.ylabel(" bias signal collapsed along y")
             plt.legend()
@@ -2650,13 +2849,14 @@ def derive_slitlet_profiles(
             max(0, curr_defs[2] - 1 - y_buff - offset),
             min(curr_defs[3] + y_buff - offset, flat_data.shape[0]),
         ]
-        expanded_data = flat_data[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]]
+        expanded_data = flat_data[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # ------------------
         # fit for best new center!
         init_yprof = numpy.nansum(expanded_data, axis=1)
 
-        y_prof = ((init_yprof - numpy.nanmin(init_yprof)) /
-                  (numpy.nanmax(init_yprof) - numpy.nanmin(init_yprof)))
+        y_prof = (init_yprof - numpy.nanmin(init_yprof)) / (
+            numpy.nanmax(init_yprof) - numpy.nanmin(init_yprof)
+        )
 
         # center = halfway between edges where it drops below 10 percent of peak
         bright_inds = numpy.nonzero(y_prof > 0.1)[0]
@@ -2676,9 +2876,7 @@ def derive_slitlet_profiles(
             plt.title(f"Slitlet {i} (red=orig, green=new)")
             plt.show()
         if verbose:
-            print(
-                "Fitted shift of %d (unbinned) pixels for slitlet %d" % (y_shift, i)
-            )
+            print("Fitted shift of %d (unbinned) pixels for slitlet %d" % (y_shift, i))
         y_shift_vals.append(y_shift)
         final_defs = [
             init_curr_defs[0],
@@ -2710,15 +2908,19 @@ def derive_slitlet_profiles(
         final_slitlet_defs = new_slitlet_defs
     if interactive_plot:
         for i in range(first_slit, first_slit + nslits):
-            plt.axhline(final_slitlet_defs[str(i)][2] // bin_y - offset, color="k", lw=2)
-            plt.axhline(final_slitlet_defs[str(i)][3] // bin_y - offset, color="k", lw=2)
+            plt.axhline(
+                final_slitlet_defs[str(i)][2] // bin_y - offset, color="k", lw=2
+            )
+            plt.axhline(
+                final_slitlet_defs[str(i)][3] // bin_y - offset, color="k", lw=2
+            )
         plt.title("Flat - black lines show slit boundaries")
         plt.xlabel("x pixel")
         plt.ylabel("y pixel")
         plt.show()
     # save it!
     f3 = open(output_fn, "w")
-    json.dump(final_slitlet_defs, f3, default=convert)
+    json.dump(final_slitlet_defs, f3, default=convert_to_JSON)
     f3.close()
     return
 
@@ -2828,7 +3030,7 @@ def interslice_cleanup(
     # 2) Get the slitlets boundaries
     if slitlet_def_file is not None:
         f2 = open(slitlet_def_file, "r")
-        init_slitlet_defs = json.load(f2, object_hook=deconvert)
+        init_slitlet_defs = json.load(f2, object_hook=deconvert_from_JSON)
         f2.close()
     elif camera == "WiFeSRed":
         init_slitlet_defs = red_slitlet_defs
@@ -2917,8 +3119,10 @@ def interslice_cleanup(
         ][data[symin:symax, xmin:xmax] < (median + nsig_lim * std)]
 
         if interactive_plot:
-            plt.imshow(tmp, aspect='auto', origin='lower')
-            plt.title(f"Slitlet {slit}: y=({symin}:{symax}), data < {median:.2f} + {nsig_lim} * {std:.2f}")
+            plt.imshow(tmp, aspect="auto", origin="lower")
+            plt.title(
+                f"Slitlet {slit}: y=({symin}:{symax}), data < {median:.2f} + {nsig_lim} * {std:.2f}"
+            )
             plt.show()
         # Perform smoothing
         if method == "2D":
@@ -2928,7 +3132,9 @@ def interslice_cleanup(
         elif method == "1D":
             inter_smooth[symin:symax, xmin:xmax] += numpy.nanmedian(tmp)
         if interactive_plot:
-            plt.imshow(inter_smooth[symin:symax, xmin:xmax], aspect='auto', origin='lower')
+            plt.imshow(
+                inter_smooth[symin:symax, xmin:xmax], aspect="auto", origin="lower"
+            )
             plt.title(f"Slitlet {slit}: inter_smooth y=({symin}:{symax})")
             plt.show()
 
@@ -2943,8 +3149,12 @@ def interslice_cleanup(
             elif method == "1D":
                 inter_smooth[symin:symax, xmin:xmax] += numpy.nanmedian(tmp)
             if interactive_plot:
-                plt.imshow(inter_smooth[symin:symax, xmin:xmax], aspect='auto', origin='lower')
-                plt.title(f"Slitlet {slit}: extra inter_smooth[{symin}:{symax}, {xmin}:{xmax}]")
+                plt.imshow(
+                    inter_smooth[symin:symax, xmin:xmax], aspect="auto", origin="lower"
+                )
+                plt.title(
+                    f"Slitlet {slit}: extra inter_smooth[{symin}:{symax}, {xmin}:{xmax}]"
+                )
                 plt.show()
 
     # ------------------------------------
@@ -3006,10 +3216,10 @@ def interslice_cleanup(
         fitted[y1:y4, xmin:xmax] = func(yall, xall)
 
         if interactive_plot:
-            plt.imshow(grid, aspect='auto', origin='lower')
+            plt.imshow(grid, aspect="auto", origin="lower")
             plt.title(f"Slitlet {slit} - grid[{y1}:{y4}, {xmin}:{xmax}]")
             plt.show()
-            plt.imshow(fitted[y1:y4, xmin:xmax], aspect='auto', origin='lower')
+            plt.imshow(fitted[y1:y4, xmin:xmax], aspect="auto", origin="lower")
             plt.title(f"Slitlet {slit} - fitted[{y1}:{y4}, {xmin}:{xmax}]")
             plt.show()
 
@@ -3018,14 +3228,14 @@ def interslice_cleanup(
     f = pyfits.open(input_fn)
     f[0].data = fitted
     # Save the corretion image separately just in case
-    f.writeto(
-        input_fn[:-5] + "_corr.fits", overwrite=True
-    )
+    f.writeto(input_fn[:-5] + "_corr.fits", overwrite=True)
     # Add back in a small offset to avoid the flat approaching zero
     applied_offset = numpy.round(offset * numpy.nanmedian(fitted), 1)
     f[0].data = data - fitted + applied_offset
     f[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    f[0].header.set("PYWICOFF", applied_offset, "PyWiFeS: interslice cleanup additive offset")
+    f[0].header.set(
+        "PYWICOFF", applied_offset, "PyWiFeS: interslice cleanup additive offset"
+    )
     f[0].header.set("PYWICBUF", buffer, "PyWiFeS: interslice clenaup buffer")
     if method == "2D":
         f[0].header.set("PYWICRAD", radius, "PyWiFeS: interslice cleanup radius")
@@ -3042,18 +3252,41 @@ def interslice_cleanup(
         fig, axs = plt.subplots(3, 1, figsize=(11, 10))  # 3 row, 1 columns
         text_size = 18
         # Plot and save the first subplot
-        axs[0].imshow(data, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower", aspect='auto')
+        axs[0].imshow(
+            data,
+            vmin=0,
+            vmax=myvmax,
+            cmap="nipy_spectral",
+            origin="lower",
+            aspect="auto",
+        )
         axs[0].set_title("Pre-corrected " + os.path.basename(input_fn), size=text_size)
 
         # Plot and save the second subplot
-        axs[1].imshow(fitted, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower", aspect='auto')
-        axs[1].set_title("Fitted contamination for " + input_fn.split("/")[-1], size=text_size)
-        axs[1].set_ylabel('Y-axis [pixel]', size=text_size)
+        axs[1].imshow(
+            fitted,
+            vmin=0,
+            vmax=myvmax,
+            cmap="nipy_spectral",
+            origin="lower",
+            aspect="auto",
+        )
+        axs[1].set_title(
+            "Fitted contamination for " + input_fn.split("/")[-1], size=text_size
+        )
+        axs[1].set_ylabel("Y-axis [pixel]", size=text_size)
 
         # Plot and save the third subplot
-        axs[2].imshow(data - fitted + applied_offset, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower", aspect='auto')
+        axs[2].imshow(
+            data - fitted + applied_offset,
+            vmin=0,
+            vmax=myvmax,
+            cmap="nipy_spectral",
+            origin="lower",
+            aspect="auto",
+        )
         axs[2].set_title("Corrected " + os.path.basename(output_fn), size=text_size)
-        axs[2].set_xlabel('X-axis [pixel]', size=text_size)
+        axs[2].set_xlabel("X-axis [pixel]", size=text_size)
 
         # Adjust layout to prevent overlapping of titles
         plt.tight_layout()
@@ -3067,8 +3300,15 @@ def interslice_cleanup(
 
 
 def wifes_slitlet_mef(
-    inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None,
-    nan_method="interp", repl_val=0.0, debug=False,
+    inimg,
+    outimg,
+    data_hdu=0,
+    bin_x=None,
+    bin_y=None,
+    slitlet_def_file=None,
+    nan_method="interp",
+    repl_val=0.0,
+    debug=False,
 ):
     """
     Create multi-extension FITS file from a single input image.
@@ -3119,7 +3359,7 @@ def wifes_slitlet_mef(
     # new ones if defined, otherwise use baseline values!
     if slitlet_def_file is not None:
         f2 = open(slitlet_def_file, "r")
-        slitlet_defs = json.load(f2, object_hook=deconvert)
+        slitlet_defs = json.load(f2, object_hook=deconvert_from_JSON)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs
@@ -3143,7 +3383,7 @@ def wifes_slitlet_mef(
     # flag bad pixels on new detectors
     epoch = determine_detector_epoch(inimg)
     if int(float(epoch[1])) > 3:
-        var_img[numpy.isnan(full_data)] = 65535.**2
+        var_img[numpy.isnan(full_data)] = 65535.0**2
         dq_img[numpy.isnan(full_data)] = 1
 
         # Linear row-by-row x-interpolation over NaNs from bad pixel mask
@@ -3152,14 +3392,17 @@ def wifes_slitlet_mef(
             for row in numpy.arange(full_data.shape[0]):
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
-                    full_data[row, :][nans] = numpy.interp(x(nans), x(~nans),
-                                                           full_data[row, :][~nans])
+                    full_data[row, :][nans] = numpy.interp(
+                        x(nans), x(~nans), full_data[row, :][~nans]
+                    )
         # Replace NaNs with indicated value
         elif nan_method == "replace":
             full_data[numpy.isnan(full_data)] = repl_val
         else:
-            raise ValueError(f"Unknown nan_method '{nan_method}' in wifes_slitlet_mef "
-                             f"for creation of {os.path.basename(outimg)}")
+            raise ValueError(
+                f"Unknown nan_method '{nan_method}' in wifes_slitlet_mef "
+                f"for creation of {os.path.basename(outimg)}"
+            )
 
     # ---------------------------
     # for each slitlet, save it to a single header extension
@@ -3204,10 +3447,12 @@ def wifes_slitlet_mef(
             curr_defs[2] - 1 - offset,
             curr_defs[3] - offset,
         ]
-        new_data = full_data[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]]
+        new_data = full_data[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # create fits hdu
         hdu_name = "SCI%d" % i
-        new_hdu = pyfits.ImageHDU(new_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        new_hdu = pyfits.ImageHDU(
+            new_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name
+        )
         new_hdu.header.set("DETSEC", dim_str)
         new_hdu.header.set("DATASEC", dim_str)
         new_hdu.header.set("TRIMSEC", dim_str)
@@ -3242,14 +3487,16 @@ def wifes_slitlet_mef(
             curr_defs[2] - 1 - offset,
             curr_defs[3] - offset,
         ]
-        var_data = var_img[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]]
+        var_data = var_img[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # create fits hdu
         hdu_name = "VAR%d" % i
-        new_hdu = pyfits.ImageHDU(var_data.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
+        new_hdu = pyfits.ImageHDU(
+            var_data.astype("float64", casting="same_kind"), old_hdr, name=hdu_name
+        )
         new_hdu.header.set("DETSEC", dim_str)
         new_hdu.header.set("DATASEC", dim_str)
         new_hdu.header.set("TRIMSEC", dim_str)
-        new_hdu.scale('float64')
+        new_hdu.scale("float64")
         outfits.append(new_hdu)
         gc.collect()
     # DATA QUALITY EXTENSIONS
@@ -3280,21 +3527,24 @@ def wifes_slitlet_mef(
             curr_defs[2] - 1 - offset,
             curr_defs[3] - offset,
         ]
-        dq_data = dq_img[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]]
+        dq_data = dq_img[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # trim data beyond range
         dq_data[dq_data > 32767] = 32767
         dq_data[dq_data < -32768] = -32768
         hdu_name = "DQ%d" % i
-        new_hdu = pyfits.ImageHDU(dq_data.astype("int16", casting="unsafe"), old_hdr, name=hdu_name)
+        new_hdu = pyfits.ImageHDU(
+            dq_data.astype("int16", casting="unsafe"), old_hdr, name=hdu_name
+        )
         new_hdu.header.set("DETSEC", dim_str)
         new_hdu.header.set("DATASEC", dim_str)
         new_hdu.header.set("TRIMSEC", dim_str)
-        new_hdu.scale('int16')
+        new_hdu.scale("int16")
         outfits.append(new_hdu)
         gc.collect()
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWSMINT", nan_method,
-                          "PyWiFeS: method for bad pixels at MEF creation")
+    outfits[0].header.set(
+        "PYWSMINT", nan_method, "PyWiFeS: method for bad pixels at MEF creation"
+    )
     outfits.writeto(outimg, overwrite=True)
     return
 
@@ -3362,7 +3612,7 @@ def wifes_slitlet_mef_ns(
     # new ones if defined, otherwise use baseline values!
     if slitlet_def_file is not None:
         f2 = open(slitlet_def_file, "r")
-        slitlet_defs = json.load(f2, object_hook=deconvert)
+        slitlet_defs = json.load(f2, object_hook=deconvert_from_JSON)
         f2.close()
     elif camera == "WiFeSRed":
         slitlet_defs = red_slitlet_defs
@@ -3386,7 +3636,7 @@ def wifes_slitlet_mef_ns(
     # flag bad pixels on new detectors
     epoch = determine_detector_epoch(inimg)
     if int(float(epoch[1])) > 3:
-        var_img[numpy.isnan(full_data)] = 65535.**2
+        var_img[numpy.isnan(full_data)] = 65535.0**2
         dq_img[numpy.isnan(full_data)] = 1
 
         # Linear row-by-row x-interpolation over NaNs from bad pixel mask (after adjusting VAR and DQ)
@@ -3394,7 +3644,9 @@ def wifes_slitlet_mef_ns(
             for row in numpy.arange(full_data.shape[0]):
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
-                    full_data[row, :][nans] = numpy.interp(x(nans), x(~nans), full_data[row, :][~nans])
+                    full_data[row, :][nans] = numpy.interp(
+                        x(nans), x(~nans), full_data[row, :][~nans]
+                    )
         # Replace NaNs with indicated value
         elif nan_method == "replace":
             full_data[numpy.isnan(full_data)] = repl_val
@@ -3438,7 +3690,7 @@ def wifes_slitlet_mef_ns(
         )
         obj_mod_defs = [obj_defs[0] - 1, obj_defs[1], obj_defs[2] - 1, obj_defs[3]]
         obj_data = full_data[
-            obj_mod_defs[2]:obj_mod_defs[3], obj_mod_defs[0]:obj_mod_defs[1]
+            obj_mod_defs[2] : obj_mod_defs[3], obj_mod_defs[0] : obj_mod_defs[1]
         ]
         # kill outer 3//bin_y pixels!!
         ykill = 4 // bin_y
@@ -3446,7 +3698,9 @@ def wifes_slitlet_mef_ns(
         obj_data[-ykill:, :] *= 0.0
         # create fits hdu for object
         hdu_name = "SCI%d" % (i + 1)
-        obj_hdu = pyfits.ImageHDU(obj_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        obj_hdu = pyfits.ImageHDU(
+            obj_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name
+        )
         obj_hdu.header.set("DETSEC", obj_dim_str)
         obj_hdu.header.set("DATASEC", obj_dim_str)
         obj_hdu.header.set("TRIMSEC", obj_dim_str)
@@ -3469,7 +3723,7 @@ def wifes_slitlet_mef_ns(
         # horrible fix to include bad NS regions definition for slitlet 1
         sky_data = numpy.zeros([nsy, nsx])
         true_sky_data = full_data[
-            sky_mod_defs[2]:sky_mod_defs[3], sky_mod_defs[0]:sky_mod_defs[1]
+            sky_mod_defs[2] : sky_mod_defs[3], sky_mod_defs[0] : sky_mod_defs[1]
         ]
         tsy, tsx = numpy.shape(true_sky_data)
         sky_data[:tsy, :tsx] = true_sky_data
@@ -3479,7 +3733,9 @@ def wifes_slitlet_mef_ns(
         sky_data[-ykill:, :] *= 0.0
         # create fits hdu for sky
         hdu_name = "SCI%d" % (i + 1)
-        sky_hdu = pyfits.ImageHDU(sky_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        sky_hdu = pyfits.ImageHDU(
+            sky_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name
+        )
         sky_hdu.header.set("DETSEC", sky_dim_str)
         sky_hdu.header.set("DATASEC", sky_dim_str)
         sky_hdu.header.set("TRIMSEC", sky_dim_str)
@@ -3528,7 +3784,7 @@ def wifes_slitlet_mef_ns(
         )
         obj_mod_defs = [obj_defs[0] - 1, obj_defs[1], obj_defs[2] - 1, obj_defs[3]]
         obj_var = var_img[
-            obj_mod_defs[2]:obj_mod_defs[3], obj_mod_defs[0]:obj_mod_defs[1]
+            obj_mod_defs[2] : obj_mod_defs[3], obj_mod_defs[0] : obj_mod_defs[1]
         ]
         # kill outer 3//bin_y pixels!!
         ykill = 4 // bin_y
@@ -3536,7 +3792,9 @@ def wifes_slitlet_mef_ns(
         obj_var[-ykill:, :] *= 0.0
         # create fits hdu for object variance
         hdu_name = "VAR%d" % (i + 1)
-        obj_hdu = pyfits.ImageHDU(obj_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
+        obj_hdu = pyfits.ImageHDU(
+            obj_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name
+        )
         obj_hdu.header.set("DETSEC", obj_dim_str)
         obj_hdu.header.set("DATASEC", obj_dim_str)
         obj_hdu.header.set("TRIMSEC", obj_dim_str)
@@ -3559,7 +3817,7 @@ def wifes_slitlet_mef_ns(
         # horrible fix to include bad NS regions definition for slitlet 1
         sky_var = numpy.zeros([nsy, nsx])
         true_sky_data = var_img[
-            sky_mod_defs[2]:sky_mod_defs[3], sky_mod_defs[0]:sky_mod_defs[1]
+            sky_mod_defs[2] : sky_mod_defs[3], sky_mod_defs[0] : sky_mod_defs[1]
         ]
         tsy, tsx = numpy.shape(true_sky_data)
         sky_var[:tsy, :tsx] = true_sky_data
@@ -3569,7 +3827,9 @@ def wifes_slitlet_mef_ns(
         sky_var[-ykill:, :] *= 0.0
         # create fits hdu for sky variance
         hdu_name = "VAR%d" % (i + 1)
-        sky_hdu = pyfits.ImageHDU(sky_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
+        sky_hdu = pyfits.ImageHDU(
+            sky_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name
+        )
         sky_hdu.header.set("DETSEC", sky_dim_str)
         sky_hdu.header.set("DATASEC", sky_dim_str)
         sky_hdu.header.set("TRIMSEC", sky_dim_str)
@@ -3618,7 +3878,7 @@ def wifes_slitlet_mef_ns(
         )
         obj_mod_defs = [obj_defs[0] - 1, obj_defs[1], obj_defs[2] - 1, obj_defs[3]]
         obj_dq = dq_img[
-            obj_mod_defs[2]:obj_mod_defs[3], obj_mod_defs[0]:obj_mod_defs[1]
+            obj_mod_defs[2] : obj_mod_defs[3], obj_mod_defs[0] : obj_mod_defs[1]
         ]
         # kill outer 3//bin_y pixels!!
         ykill = 4 // bin_y
@@ -3630,7 +3890,9 @@ def wifes_slitlet_mef_ns(
         # ------------------
         # create fits hdu for object DQ
         hdu_name = "DQ%d" % (i + 1)
-        obj_hdu = pyfits.ImageHDU(obj_dq.astype("int16", casting="unsafe"), old_hdr, name=hdu_name)
+        obj_hdu = pyfits.ImageHDU(
+            obj_dq.astype("int16", casting="unsafe"), old_hdr, name=hdu_name
+        )
         obj_hdu.header.set("DETSEC", obj_dim_str)
         obj_hdu.header.set("DATASEC", obj_dim_str)
         obj_hdu.header.set("TRIMSEC", obj_dim_str)
@@ -3653,7 +3915,7 @@ def wifes_slitlet_mef_ns(
         # horrible fix to include bad NS regions definition for slitlet 1
         sky_dq = numpy.zeros([nsy, nsx], dtype="int16")
         true_sky_data = dq_img[
-            sky_mod_defs[2]:sky_mod_defs[3], sky_mod_defs[0]:sky_mod_defs[1]
+            sky_mod_defs[2] : sky_mod_defs[3], sky_mod_defs[0] : sky_mod_defs[1]
         ]
         tsy, tsx = numpy.shape(true_sky_data)
         sky_dq[:tsy, :tsx] = true_sky_data
@@ -3666,7 +3928,9 @@ def wifes_slitlet_mef_ns(
         sky_dq[sky_dq < -32768] = -32768
         # create fits hdu for sky DQ
         hdu_name = "DQ%d" % (i + 1)
-        sky_hdu = pyfits.ImageHDU(sky_dq.astype("int16", casting="unsafe"), old_hdr, name=hdu_name)
+        sky_hdu = pyfits.ImageHDU(
+            sky_dq.astype("int16", casting="unsafe"), old_hdr, name=hdu_name
+        )
         sky_hdu.header.set("DETSEC", sky_dim_str)
         sky_hdu.header.set("DATASEC", sky_dim_str)
         sky_hdu.header.set("TRIMSEC", sky_dim_str)
@@ -3678,16 +3942,24 @@ def wifes_slitlet_mef_ns(
         gc.collect()
     # ------------------------------------
     outfits_obj[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits_obj[0].header.set("PYWSMDEF", slitlet_def_file.split('/')[-1],
-                              "PyWiFeS: slitlet MEF definition file")
-    outfits_obj[0].header.set("PYWSMINT", nan_method,
-                              "PyWiFeS: method for bad pixels at MEF creation")
+    outfits_obj[0].header.set(
+        "PYWSMDEF",
+        slitlet_def_file.split("/")[-1],
+        "PyWiFeS: slitlet MEF definition file",
+    )
+    outfits_obj[0].header.set(
+        "PYWSMINT", nan_method, "PyWiFeS: method for bad pixels at MEF creation"
+    )
     outfits_obj.writeto(outimg_obj, overwrite=True)
     outfits_sky[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits_sky[0].header.set("PYWSMDEF", slitlet_def_file.split('/')[-1],
-                              "PyWiFeS: slitlet MEF definition file")
-    outfits_sky[0].header.set("PYWSMINT", nan_method,
-                              "PyWiFeS: method for bad pixels at MEF creation")
+    outfits_sky[0].header.set(
+        "PYWSMDEF",
+        slitlet_def_file.split("/")[-1],
+        "PyWiFeS: slitlet MEF definition file",
+    )
+    outfits_sky[0].header.set(
+        "PYWSMINT", nan_method, "PyWiFeS: method for bad pixels at MEF creation"
+    )
     outfits_sky.writeto(outimg_sky, overwrite=True)
     return
 
@@ -3745,18 +4017,16 @@ def wifes_response_pixel(inimg, outimg, wsol_fn=None, debug=False):
             curr_ff_rowwise_ave = numpy.nanmedian(rect_data, axis=0)
             curr_ff_illum = numpy.nanmedian(rect_data / curr_ff_rowwise_ave, axis=1)
             curr_model = (
-                (numpy.ones(numpy.shape(rect_data)) * curr_ff_rowwise_ave)
-                * curr_ff_illum.T[:, numpy.newaxis]
-            )
+                numpy.ones(numpy.shape(rect_data)) * curr_ff_rowwise_ave
+            ) * curr_ff_illum.T[:, numpy.newaxis]
             orig_model = detransform_data(curr_model, orig_data, wave)
             normed_data = orig_data / orig_model
         else:
             curr_ff_rowwise_ave = numpy.nanmedian(orig_data, axis=0)
             curr_ff_illum = numpy.nanmedian(orig_data / curr_ff_rowwise_ave, axis=1)
             curr_model = (
-                (numpy.ones(numpy.shape(orig_data)) * curr_ff_rowwise_ave)
-                * curr_ff_illum.T[:, numpy.newaxis]
-            )
+                numpy.ones(numpy.shape(orig_data)) * curr_ff_rowwise_ave
+            ) * curr_ff_illum.T[:, numpy.newaxis]
             normed_data = orig_data / curr_model
         outfits[curr_hdu].data = normed_data.astype("float32", casting="same_kind")
         outfits[curr_hdu].scale("float32")
@@ -3775,7 +4045,7 @@ def wifes_response_poly(
     polydeg=7,
     shape_fn=None,
     plot=True,
-    plot_dir='.',
+    plot_dir=".",
     save_prefix="flat_response",
     debug=False,
 ):
@@ -3883,13 +4153,17 @@ def wifes_response_poly(
             print("Transforming data for Slitlet %d" % (first + i))
             rect_data, lam_array = transform_data(orig_data, wave, return_lambda=True)
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
-            curr_norm_array_noxform = detransform_data(numpy.tile(curr_norm_array, (orig_data.shape[1], 1)), orig_data, wave)
+            curr_norm_array_noxform = detransform_data(
+                numpy.tile(curr_norm_array, (orig_data.shape[1], 1)), orig_data, wave
+            )
             init_normed_data = rect_data / curr_norm_array
             normed_data = detransform_data(init_normed_data, orig_data, wave)
             if i == mid_slit_idx:
-                with open(shape_fn, 'w') as of:
+                with open(shape_fn, "w") as of:
                     for smooth_row in range(lam_array.shape[0]):
-                        of.write(f"{lam_array[smooth_row]} {curr_norm_array[smooth_row]}\n")
+                        of.write(
+                            f"{lam_array[smooth_row]} {curr_norm_array[smooth_row]}\n"
+                        )
 
         else:
             lam_array = numpy.arange(len(orig_data[0, :]), dtype="d")
@@ -3898,7 +4172,7 @@ def wifes_response_poly(
 
         # Diagnostic plot: save some values for later
         if plot and i == mid_slit_idx:
-            mid_row = (orig_data.shape[0] // 2)
+            mid_row = orig_data.shape[0] // 2
             x1 = numpy.arange(orig_data.shape[1])
             y1 = orig_data[mid_row, :]
             y3 = curr_norm_array_noxform[0, :]
@@ -3907,7 +4181,9 @@ def wifes_response_poly(
         outfits[curr_hdu].scale("float32")
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype(
+                "float64", casting="same_kind"
+            )
             outfits[var_hdu].scale("float64")
         # need to fit this for each slitlet
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -3925,26 +4201,26 @@ def wifes_response_poly(
 
         # (1) spectral fit: plot the middle spectrum of the middle slit
         ax_left = fig.add_subplot(grid[0, 0])
-        ax_left.set_title('Spectral Flatfield Correction')
-        ax_left.plot(x1, y1, "C0", label='Original flat lamp spectrum')
-        ax_left.plot(x1, y3, color="r", ls='dashed', label='Smooth function fit')
+        ax_left.set_title("Spectral Flatfield Correction")
+        ax_left.plot(x1, y1, "C0", label="Original flat lamp spectrum")
+        ax_left.plot(x1, y3, color="r", ls="dashed", label="Smooth function fit")
         ax_left.legend()
-        ax_left.set_xlabel(r'X-axis pixel')
-        ax_left.set_ylabel('Flux')
+        ax_left.set_xlabel(r"X-axis pixel")
+        ax_left.set_ylabel("Flux")
         ax_left.set_ylim(0.8 * numpy.nanmin(y1), 1.2 * numpy.nanmax(y1))
-        ax_left.set_yscale('log')
+        ax_left.set_yscale("log")
 
         # (2) spectral fit residuals
         ax_bottom = fig.add_subplot(grid[1, 0])
-        ax_bottom.axhline(1, ls='--', c='k')
+        ax_bottom.axhline(1, ls="--", c="k")
         ax_bottom.plot(x1, y1 / y3)
-        ax_bottom.set_ylabel('Ratio')
+        ax_bottom.set_ylabel("Ratio")
         ax_bottom.set_ylim(0.85, 1.15)
 
         # (3) illumination correction
         ax_right = fig.add_subplot(grid[0, 1])
-        ax_right.set_title('Illumination Correction')
-        ax_right.text(0.5, 0.5, 'No Twilight Flats', horizontalalignment='center')
+        ax_right.set_title("Illumination Correction")
+        ax_right.text(0.5, 0.5, "No Twilight Flats", horizontalalignment="center")
 
         plt.tight_layout()
         plot_name = f"{save_prefix}.png"
@@ -3962,7 +4238,7 @@ def wifes_2dim_response(
     wsol_fn=None,
     zero_var=True,
     plot=True,
-    plot_dir='.',
+    plot_dir=".",
     save_prefix="flat_response",
     polydeg=7,
     resp_min=1.0e-4,
@@ -4064,11 +4340,11 @@ def wifes_2dim_response(
     good_inds = numpy.nonzero((numpy.isfinite(curr_y)) * (curr_ff_rowwise_ave > 0.0))[0]
     # add points far away to force edge derivatives to be preserved
     if pyfits.getval(spec_inimg, "CAMERA") == "WiFeSRed":
-        next_x = mid_lam_array[good_inds][500 // bin_x:-10 // bin_x]
-        next_y = curr_y[good_inds][500 // bin_x:-10 // bin_x]
+        next_x = mid_lam_array[good_inds][500 // bin_x : -10 // bin_x]
+        next_y = curr_y[good_inds][500 // bin_x : -10 // bin_x]
     else:
-        next_x = mid_lam_array[good_inds][50 // bin_x:-100 // bin_x]
-        next_y = curr_y[good_inds][50 // bin_x:-100 // bin_x]
+        next_x = mid_lam_array[good_inds][50 // bin_x : -100 // bin_x]
+        next_y = curr_y[good_inds][50 // bin_x : -100 // bin_x]
 
     yderiv = (next_y[1:] - next_y[:-1]) / (next_x[1:] - next_x[:-1])
     nave_lo = 50 // bin_x
@@ -4148,7 +4424,8 @@ def wifes_2dim_response(
             xstop = int(0.75 * len(lam_array))
             norm_region = init_normed_data[:, xstart:xstop]
             next_normed_data = (
-                init_normed_data / numpy.nanmedian(norm_region, axis=1).T[:, numpy.newaxis]
+                init_normed_data
+                / numpy.nanmedian(norm_region, axis=1).T[:, numpy.newaxis]
             )
             next_normed_data[next_normed_data <= 0] = numpy.nan
 
@@ -4156,14 +4433,18 @@ def wifes_2dim_response(
             try:
                 nflat = float(f1[0].header["PYWFLATN"])
             except Exception:
-                print("Could not retrieve number of input dome flats from header, defaulting to 1")
+                print(
+                    "Could not retrieve number of input dome flats from header, defaulting to 1"
+                )
                 nflat = 1.0
-            if 'PYWICOFF' in f1[0].header:
-                ic_off = float(f1[0].header['PYWICOFF'])
+            if "PYWICOFF" in f1[0].header:
+                ic_off = float(f1[0].header["PYWICOFF"])
             else:
                 ic_off = 0.0
-            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off)
-            next_normed_data[:, force_idx] = 1.
+            force_idx = numpy.nonzero(
+                nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off
+            )
+            next_normed_data[:, force_idx] = 1.0
 
             # SPATIAL FLAT
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
@@ -4208,14 +4489,18 @@ def wifes_2dim_response(
             try:
                 nflat = float(f1[0].header["PYWFLATN"])
             except Exception:
-                print("Could not retrieve number of input dome flats from header, defaulting to 1")
+                print(
+                    "Could not retrieve number of input dome flats from header, defaulting to 1"
+                )
                 nflat = 1.0
-            if 'PYWICOFF' in f1[0].header:
-                ic_off = float(f1[0].header['PYWICOFF'])
+            if "PYWICOFF" in f1[0].header:
+                ic_off = float(f1[0].header["PYWICOFF"])
             else:
                 ic_off = 0.0
-            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off)
-            normed_data[:, force_idx] = 1.
+            force_idx = numpy.nonzero(
+                nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off
+            )
+            normed_data[:, force_idx] = 1.0
 
             normed_data[numpy.nonzero(normed_data < resp_min)] = resp_min
         outfits[curr_hdu].data = normed_data.astype("float32", casting="same_kind")
@@ -4223,7 +4508,9 @@ def wifes_2dim_response(
         illum[:, i] = numpy.nanmedian(normed_data, axis=1)
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype(
+                "float64", casting="same_kind"
+            )
             outfits[var_hdu].scale("float64")
         # need to fit this for each slitlet
 
@@ -4245,32 +4532,37 @@ def wifes_2dim_response(
 
         # (1) spectral fit
         ax_left = fig.add_subplot(grid[0, 0:2])
-        ax_left.set_title('Spectral Flatfield Correction')
-        ax_left.plot(mid_lam_array, curr_ff_rowwise_ave, "C0", label='flat lamp spectrum')
+        ax_left.set_title("Spectral Flatfield Correction")
+        ax_left.plot(
+            mid_lam_array, curr_ff_rowwise_ave, "C0", label="flat lamp spectrum"
+        )
         ax_left.plot(
             mid_lam_array,
             10.0 ** (numpy.polyval(smooth_poly, mid_lam_array)),
             color="r",
-            ls='dashed',
-            label='smooth function fit ',
+            ls="dashed",
+            label="smooth function fit ",
         )
 
         ax_left.legend()
-        ax_left.set_xlabel(r'Wavelength [$\AA$]')
-        ax_left.set_ylabel('Flux')
-        ax_left.set_yscale('log')
+        ax_left.set_xlabel(r"Wavelength [$\AA$]")
+        ax_left.set_ylabel("Flux")
+        ax_left.set_yscale("log")
 
         # (2) illumination correction
         ax_right = fig.add_subplot(grid[0, 2])
-        ax_right.set_title('Illumination Correction\n(not wire-aligned)')
+        ax_right.set_title("Illumination Correction\n(not wire-aligned)")
         pos = ax_right.imshow(
-            illum, interpolation="nearest", origin="lower",
-            cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
-            extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[0] - 0.5]
+            illum,
+            interpolation="nearest",
+            origin="lower",
+            cmap=cm["gist_rainbow"],
+            aspect=(0.5 * bin_y),
+            extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[0] - 0.5],
         )
         fig.colorbar(pos, ax=ax_right, shrink=0.9)
-        ax_right.set_xlabel('Slitlet')
-        ax_right.set_ylabel('Detector Y')
+        ax_right.set_xlabel("Slitlet")
+        ax_right.set_ylabel("Detector Y")
 
         plt.tight_layout()
         plot_name = f"{save_prefix}.png"
@@ -4289,7 +4581,7 @@ def wifes_SG_response(
     wsol_fn=None,
     zero_var=True,
     plot=True,
-    plot_dir='.',
+    plot_dir=".",
     save_prefix="flat_response",
     resp_min=1.0e-4,
     shape_fn=None,
@@ -4356,7 +4648,9 @@ def wifes_SG_response(
         f2 = pyfits.open(spatial_inimg)
     ndy, ndx = numpy.shape(f1[1].data)
     arm = f1[0].header["CAMERA"]
-    grating = f1[0].header["GRATINGB"] if arm == "WiFeSBlue" else f1[0].header["GRATINGR"]
+    grating = (
+        f1[0].header["GRATINGB"] if arm == "WiFeSBlue" else f1[0].header["GRATINGR"]
+    )
 
     try:
         bin_x, bin_y = [int(b) for b in f1[0].header["CCDSUM"].split()]
@@ -4367,10 +4661,12 @@ def wifes_SG_response(
     try:
         nflat = float(f1[0].header["PYWFLATN"])
     except Exception:
-        print("Could not retrieve number of input dome flats from header, defaulting to 1")
+        print(
+            "Could not retrieve number of input dome flats from header, defaulting to 1"
+        )
         nflat = 1.0
-    if 'PYWICOFF' in f1[0].header:
-        ic_off = float(f1[0].header['PYWICOFF'])
+    if "PYWICOFF" in f1[0].header:
+        ic_off = float(f1[0].header["PYWICOFF"])
     else:
         ic_off = 0.0
 
@@ -4378,7 +4674,9 @@ def wifes_SG_response(
         try:
             ntflat = float(f2[0].header["PYWTWIN"])
         except Exception:
-            print("Could not retrieve number of input twi flats from header, defaulting to 1")
+            print(
+                "Could not retrieve number of input twi flats from header, defaulting to 1"
+            )
             ntflat = 1.0
 
     outfits = pyfits.HDUList(f1)
@@ -4400,15 +4698,26 @@ def wifes_SG_response(
         for row in range(orig_spec_data.shape[0]):
             this_row = orig_spec_data[row, :]
             this_x = numpy.arange(orig_spec_data.shape[1])
-            this_y = numpy.log10(numpy.interp(this_x, this_x[this_row > 0],
-                                              this_row[this_row > 0]))
-            intermed0 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
+            this_y = numpy.log10(
+                numpy.interp(this_x, this_x[this_row > 0], this_row[this_row > 0])
+            )
+            intermed0 = signal.savgol_filter(
+                this_y, window_length=N, polyorder=3, mode="nearest"
+            )
             # filter out large outliers
             keep_idx = numpy.nonzero(numpy.abs(this_y - intermed0) / intermed0 < 0.2)[0]
-            this_y = numpy.log10(numpy.interp(this_x, this_x[keep_idx],
-                                              this_row[keep_idx]))
-            intermed1 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
-            intermed2 = signal.savgol_filter(intermed1, window_length=(window_factor * N), polyorder=3, mode='nearest')
+            this_y = numpy.log10(
+                numpy.interp(this_x, this_x[keep_idx], this_row[keep_idx])
+            )
+            intermed1 = signal.savgol_filter(
+                this_y, window_length=N, polyorder=3, mode="nearest"
+            )
+            intermed2 = signal.savgol_filter(
+                intermed1,
+                window_length=(window_factor * N),
+                polyorder=3,
+                mode="nearest",
+            )
 
             pixel_response[i, row, :] = this_row / numpy.power(10, intermed2)
 
@@ -4418,22 +4727,34 @@ def wifes_SG_response(
                     fig = plt.figure(figsize=(10, 6))
                     gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
                     ax1 = fig.add_subplot(gs[0, 0])
-                    ax1.plot(this_x, this_row, "C0", label='Original flat lamp spectrum')
-                    ax1.plot(this_x, numpy.power(10, this_y), c="g", label='Data being fit')
-                    ax1.plot(this_x, numpy.power(10, intermed2), color="r", ls='dashed', label='Smooth function fit')
+                    ax1.plot(
+                        this_x, this_row, "C0", label="Original flat lamp spectrum"
+                    )
+                    ax1.plot(
+                        this_x, numpy.power(10, this_y), c="g", label="Data being fit"
+                    )
+                    ax1.plot(
+                        this_x,
+                        numpy.power(10, intermed2),
+                        color="r",
+                        ls="dashed",
+                        label="Smooth function fit",
+                    )
                     ax1.legend()
-                    ax1.set_ylabel('Flux')
+                    ax1.set_ylabel("Flux")
                     ax1.set_title(f"Slitlet {i+first}")
-                    ax1.set_ylim(0.8 * numpy.nanmin(this_row), 1.2 * numpy.nanmax(this_row))
-                    ax1.set_yscale('log')
+                    ax1.set_ylim(
+                        0.8 * numpy.nanmin(this_row), 1.2 * numpy.nanmax(this_row)
+                    )
+                    ax1.set_yscale("log")
 
                     ax2 = fig.add_subplot(gs[1, 0])
                     this_pixel_response = pixel_response[i, row, :]
-                    this_pixel_response[nflat * this_row < 100.] = 1.
-                    ax2.axhline(1, ls='--', c='k')
+                    this_pixel_response[nflat * this_row < 100.0] = 1.0
+                    ax2.axhline(1, ls="--", c="k")
                     ax2.plot(this_x, this_pixel_response)
-                    ax2.set_xlabel(r'X-axis pixel')
-                    ax2.set_ylabel('Ratio')
+                    ax2.set_xlabel(r"X-axis pixel")
+                    ax2.set_ylabel("Ratio")
                     ax2.set_ylim(0.85, 1.15)
                     plt.show()
 
@@ -4445,7 +4766,7 @@ def wifes_SG_response(
                     y3 = numpy.power(10, intermed2)
 
         # Force pixel_response to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
-        pixel_response[i][nflat * orig_spec_data < 100. - ic_off] = 1.
+        pixel_response[i][nflat * orig_spec_data < 100.0 - ic_off] = 1.0
 
         # rectify twilight data to take consistent wavelength regions
         if wsol_fn is not None:
@@ -4455,12 +4776,22 @@ def wifes_SG_response(
 
             # SPATIAL FLAT
             if spatial_inimg is not None:
-                rect_spat_data, lam_array = transform_data(orig_spat_data, wave, return_lambda=True)
+                rect_spat_data, lam_array = transform_data(
+                    orig_spat_data, wave, return_lambda=True
+                )
                 # define limits in untransformed coordinates
-                lam_min = numpy.amin((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
-                lam_max = numpy.amax((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
+                lam_min = numpy.amin(
+                    (wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0
+                )
+                lam_max = numpy.amax(
+                    (wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0
+                )
                 for row in range(rect_spat_data.shape[0]):
-                    illum[i, row] = numpy.median(rect_spat_data[row, :][(lam_array >= lam_min[row]) * (lam_array <= lam_max[row])])
+                    illum[i, row] = numpy.median(
+                        rect_spat_data[row, :][
+                            (lam_array >= lam_min[row]) * (lam_array <= lam_max[row])
+                        ]
+                    )
 
             # Save the smooth fit to the middle row of the middle slice of the spectral flat
             # Do this here to avoid duplicating retrieval of wavelength info
@@ -4468,33 +4799,43 @@ def wifes_SG_response(
                 smooth_wave = wave[(orig_spec_data.shape[0] // 2), :]
                 y3max = numpy.nanmax(y3)
                 y3norm = numpy.log10(y3 / y3max)
-                y3n_interp = interp.interp1d(smooth_wave[~numpy.isnan(y3norm)],
-                                             y3norm[~numpy.isnan(y3norm)],
-                                             kind='linear',
-                                             bounds_error=False,
-                                             fill_value="extrapolate")
+                y3n_interp = interp.interp1d(
+                    smooth_wave[~numpy.isnan(y3norm)],
+                    y3norm[~numpy.isnan(y3norm)],
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value="extrapolate",
+                )
                 y3out = numpy.power(10, y3n_interp(smooth_wave))
-                with open(shape_fn, 'w') as of:
+                with open(shape_fn, "w") as of:
                     for smooth_pix in range(smooth_wave.shape[0]):
                         of.write(f"{smooth_wave[smooth_pix]} {y3out[smooth_pix]}\n")
 
         else:
             if spatial_inimg is not None:
-                illum[i, :] = numpy.median(orig_spat_data[:, 1500 // bin_x:2000 // bin_x], axis=0)
+                illum[i, :] = numpy.median(
+                    orig_spat_data[:, 1500 // bin_x : 2000 // bin_x], axis=0
+                )
 
     # Normalise spatial flat to a peak of 1
     if spatial_inimg is not None:
         illum /= numpy.amax(illum)
-    pixel_response = numpy.clip(illum[:, :, numpy.newaxis] * pixel_response, a_min=resp_min, a_max=None)
+    pixel_response = numpy.clip(
+        illum[:, :, numpy.newaxis] * pixel_response, a_min=resp_min, a_max=None
+    )
 
     for i in range(nslits):
         curr_hdu = i + 1
         print(f"Writing slitlet {i + first}")
-        outfits[curr_hdu].data = pixel_response[i].astype("float32", casting="same_kind")
+        outfits[curr_hdu].data = pixel_response[i].astype(
+            "float32", casting="same_kind"
+        )
         outfits[curr_hdu].scale("float32")
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype(
+                "float64", casting="same_kind"
+            )
             outfits[var_hdu].scale("float64")
 
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -4503,10 +4844,14 @@ def wifes_SG_response(
     else:
         outfits[0].header.set("PYWRESIN", "dome", "PyWiFeS: flatfield inputs")
     if spatial_inimg is not None:
-        outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flats combined")
+        outfits[0].header.set(
+            "PYWTWIN", ntflat, "PyWiFeS: number of twilight flats combined"
+        )
     outfits[0].header.set("PYWRESZV", zero_var, "PyWiFeS: 2D response zero_var")
     outfits[0].header.set("PYWRESW1", N, "PyWiFeS: 1st Savitzky-Golay window size")
-    outfits[0].header.set("PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size")
+    outfits[0].header.set(
+        "PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size"
+    )
     outfits[0].header.set("PYWRESMN", resp_min, "PyWiFeS: 2D response minimum response")
     outfits.writeto(outimg, overwrite=True)
     f1.close()
@@ -4521,40 +4866,47 @@ def wifes_SG_response(
 
         # (1) spectral fit: plot the middle spectrum of the middle slit
         ax_left = fig.add_subplot(grid[0, 0])
-        ax_left.set_title('Spectral Flatfield Correction')
-        ax_left.plot(x1, y1, "C0", label='Original flat lamp spectrum')
-        ax_left.plot(x1, y2, c="g", label='Data being fit')
-        ax_left.plot(x1, y3, color="r", ls='dashed', label='Smooth function fit')
+        ax_left.set_title("Spectral Flatfield Correction")
+        ax_left.plot(x1, y1, "C0", label="Original flat lamp spectrum")
+        ax_left.plot(x1, y2, c="g", label="Data being fit")
+        ax_left.plot(x1, y3, color="r", ls="dashed", label="Smooth function fit")
         ax_left.legend()
-        ax_left.set_xlabel(r'X-axis pixel')
-        ax_left.set_ylabel('Flux')
+        ax_left.set_xlabel(r"X-axis pixel")
+        ax_left.set_ylabel("Flux")
         ymax = 1.2 * numpy.nanmax(y1)
-        ymin = numpy.nanmax([1, 0.8 * numpy.nanmin(y1)]) if ymax > 100 else numpy.nanmax([0.01, 0.8 * numpy.nanmin(y1)])
+        ymin = (
+            numpy.nanmax([1, 0.8 * numpy.nanmin(y1)])
+            if ymax > 100
+            else numpy.nanmax([0.01, 0.8 * numpy.nanmin(y1)])
+        )
         ax_left.set_ylim(ymin, ymax)
-        ax_left.set_yscale('log')
+        ax_left.set_yscale("log")
 
         # (2) spectral fit residuals
         ax_bottom = fig.add_subplot(grid[1, 0])
-        ax_bottom.axhline(1, ls='--', c='k')
+        ax_bottom.axhline(1, ls="--", c="k")
         ax_bottom.plot(x1, y1 / y3)
-        ax_bottom.set_ylabel('Ratio')
+        ax_bottom.set_ylabel("Ratio")
         ax_bottom.set_ylim(0.85, 1.15)
 
         # (3) illumination correction
         ax_right = fig.add_subplot(grid[0, 1])
         if spatial_inimg is not None:
-            ax_right.set_title('Illumination Correction\n(not wire-aligned)')
+            ax_right.set_title("Illumination Correction\n(not wire-aligned)")
             pos = ax_right.imshow(
-                illum.T, interpolation="nearest", origin="lower",
-                cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
-                extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[1] - 0.5]
+                illum.T,
+                interpolation="nearest",
+                origin="lower",
+                cmap=cm["gist_rainbow"],
+                aspect=(0.5 * bin_y),
+                extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[1] - 0.5],
             )
             fig.colorbar(pos, ax=ax_right, shrink=0.9)
-            ax_right.set_xlabel('Slitlet')
-            ax_right.set_ylabel('Detector Y')
+            ax_right.set_xlabel("Slitlet")
+            ax_right.set_ylabel("Detector Y")
         else:
-            ax_right.set_title('Illumination Correction')
-            ax_right.text(0.5, 0.5, 'No Twilight Flats', horizontalalignment='center')
+            ax_right.set_title("Illumination Correction")
+            ax_right.text(0.5, 0.5, "No Twilight Flats", horizontalalignment="center")
 
         plt.tight_layout()
         plot_name = f"{save_prefix}.png"
@@ -4578,13 +4930,13 @@ def derive_wifes_wire_solution(
     xlims="default",
     interactive_plot=False,
     plot=True,
-    plot_dir='.',
-    save_prefix='wire_fit_params',
+    plot_dir=".",
+    save_prefix="wire_fit_params",
     debug=False,
 ):
     """
     Trace the wire image to determine position of centre of each slitlet.
-    
+
     Parameters
     ----------
     inimg : str
@@ -4714,9 +5066,10 @@ def derive_wifes_wire_solution(
             yprof = numpy.nanmedian(
                 test_data[
                     :,
-                    max([0, nave * i - nave // 2]):min(
+                    max([0, nave * i - nave // 2]) : min(
                         [nave * i + nave // 2, test_data.shape[1]]
-                    ) + 1,
+                    )
+                    + 1,
                 ],
                 axis=1,
             )
@@ -4753,9 +5106,14 @@ def derive_wifes_wire_solution(
         trend_y = numpy.polyval(wire_trend[0], ccd_x)
         # Plot wire solution
         if interactive_plot:
-            plt.scatter(fit_x_arr, fit_y_arr, c='b', label='Profile median centroids')
-            plt.scatter(fit_x_arr[good_inds], fit_y_arr[good_inds], c='green', label='Used in fit')
-            plt.plot(ccd_x, trend_y, c='r', label="Fit")
+            plt.scatter(fit_x_arr, fit_y_arr, c="b", label="Profile median centroids")
+            plt.scatter(
+                fit_x_arr[good_inds],
+                fit_y_arr[good_inds],
+                c="green",
+                label="Used in fit",
+            )
+            plt.plot(ccd_x, trend_y, c="r", label="Fit")
             plt.xlabel("x pixel")
             plt.ylabel("Wire centroid y pixel")
             plt.title(f"Slitlet {slit_ind}")
@@ -4769,10 +5127,20 @@ def derive_wifes_wire_solution(
     if plot:
         for i, slice in enumerate(range(first, first + nslits)):
             if wire_polydeg == 1:
-                plt.errorbar(slice, wparam[i][0][0] * 1000., yerr=(1000. * wparam[i][1]), marker='o')
+                plt.errorbar(
+                    slice,
+                    wparam[i][0][0] * 1000.0,
+                    yerr=(1000.0 * wparam[i][1]),
+                    marker="o",
+                )
             elif wire_polydeg >= 2:
-                plt.scatter(slice, wparam[i][0][-3], marker='x')
-                plt.errorbar(slice, wparam[i][0][-2] * 1000., yerr=(1000. * wparam[i][1]), marker='o')
+                plt.scatter(slice, wparam[i][0][-3], marker="x")
+                plt.errorbar(
+                    slice,
+                    wparam[i][0][-2] * 1000.0,
+                    yerr=(1000.0 * wparam[i][1]),
+                    marker="o",
+                )
                 if wire_polydeg > 2:
                     plt.scatter([], [], label="Higher-order terms\nfit but not plotted")
         plt.xlabel("Slitlet")
@@ -4790,7 +5158,9 @@ def derive_wifes_wire_solution(
     g = pyfits.HDUList([results])
     g[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     g[0].header.set("PYWWIREN", nwire, "PyWiFeS: number wire images combined")
-    g[0].header.set("PYWWIFZ", ", ".join(str(fz) for fz in fit_zones), "PyWiFeS: wire fit zones")
+    g[0].header.set(
+        "PYWWIFZ", ", ".join(str(fz) for fz in fit_zones), "PyWiFeS: wire fit zones"
+    )
     g[0].header.set("PYWWIFT", flux_threshold, "PyWiFeS: wire flux_threshold")
     g[0].header.set("PYWWIWPD", wire_polydeg, "PyWiFeS: wire_polydeg")
     g.writeto(out_file, overwrite=True)
@@ -4802,9 +5172,7 @@ def _scale_grid_data(
 ):
     return (
         numpy.abs(scale_factor)
-        * interp.griddata(
-            points, values, xi, method=method, fill_value=fill_value
-        ).T
+        * interp.griddata(points, values, xi, method=method, fill_value=fill_value).T
     )
 
 
@@ -4909,7 +5277,9 @@ def generate_wifes_cube(
     ndy_orig, ndx_orig = numpy.shape(f3[1].data)
 
     if subsample < 1 or subsample > 10:
-        print(f"generate_wifes_cube: subsample must be between 1 and 10. Received {subsample}, setting to 1.")
+        print(
+            f"generate_wifes_cube: subsample must be between 1 and 10. Received {subsample}, setting to 1."
+        )
         subsample = 1
 
     ndx = ndx_orig
@@ -4952,9 +5322,10 @@ def generate_wifes_cube(
         if convert_wave:
             # Remove the vacuum-to-air conversion applied by NIST to arcline
             # wavelengths. From Peck & Reeder (1972).
-            n = 1.0 + 1E-8 * (
-                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave / 1E4, -2))
-                + 17455.7 / (39.32957 - numpy.float_power(wave / 1E4, -2))
+            n = 1.0 + 1e-8 * (
+                8060.51
+                + 2480990.0 / (132.274 - numpy.float_power(wave / 1e4, -2))
+                + 17455.7 / (39.32957 - numpy.float_power(wave / 1e4, -2))
             )
             wave = wave * n
         curr_wmin = numpy.nanmax(numpy.nanmin(wave, axis=1))
@@ -5009,7 +5380,9 @@ def generate_wifes_cube(
         f5 = pyfits.open(wire_fn)
         wire_trans = f5[0].data
         if subsample > 1:
-            wire_trans = subsample * ndimage.zoom(wire_trans, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+            wire_trans = subsample * ndimage.zoom(
+                wire_trans, zoom=[subsample, 1], order=0, mode="nearest", grid_mode=True
+            )
         kwwiredeg = f5[0].header.get("PYWWIWPD", default="Unknown")
         kwwirenum = f5[0].header.get("PYWWIREN", default="Unknown")
         f5.close()
@@ -5087,9 +5460,10 @@ def generate_wifes_cube(
         if convert_wave:
             # Remove the vacuum-to-air conversion applied by NIST to arcline
             # wavelengths. From Peck & Reeder (1972).
-            n = 1.0 + 1E-8 * (
-                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave / 1E4, -2))
-                + 17455.7 / (39.32957 - numpy.float_power(wave / 1E4, -2))
+            n = 1.0 + 1e-8 * (
+                8060.51
+                + 2480990.0 / (132.274 - numpy.float_power(wave / 1e4, -2))
+                + 17455.7 / (39.32957 - numpy.float_power(wave / 1e4, -2))
             )
             wave = wave * n
 
@@ -5098,17 +5472,27 @@ def generate_wifes_cube(
         curr_dq = f3[curr_hdu + 2 * nslits].data
 
         if subsample > 1:
-            wave = ndimage.zoom(wave, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
-            curr_flux = ndimage.zoom(curr_flux, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
-            curr_var = ndimage.zoom(curr_var, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
-            curr_dq = ndimage.zoom(curr_dq, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+            wave = ndimage.zoom(
+                wave, zoom=[subsample, 1], order=0, mode="nearest", grid_mode=True
+            )
+            curr_flux = ndimage.zoom(
+                curr_flux, zoom=[subsample, 1], order=0, mode="nearest", grid_mode=True
+            )
+            curr_var = ndimage.zoom(
+                curr_var, zoom=[subsample, 1], order=0, mode="nearest", grid_mode=True
+            )
+            curr_dq = ndimage.zoom(
+                curr_dq, zoom=[subsample, 1], order=0, mode="nearest", grid_mode=True
+            )
 
         # convert the *x* pixels to lambda
         dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
         full_dw = numpy.zeros(wave.shape)
         full_dw[:, 1:] = dw
         full_dw[:, 0] = dw[:, 0]
-        for ii in range(int(numpy.ceil(i * subsample)), int(numpy.ceil((i + 1) * subsample))):
+        for ii in range(
+            int(numpy.ceil(i * subsample)), int(numpy.ceil((i + 1) * subsample))
+        ):
             # and *y* to real y
             curr_wire = wire_trans[ii, :]
             all_ypos = full_y - curr_wire - wire_offset
@@ -5123,7 +5507,16 @@ def generate_wifes_cube(
             # Calculate the ADR corrections (this is slow)
             if adr:
                 adr_corr = adr_x_y(
-                    wave_flat, secz=secz, objha=ha, objdec=dec, tellat=lat, teltemp=sso_temp, telpres=sso_pres, telwvp=sso_wvp, telpa=telpa, ref_wl=5600.
+                    wave_flat,
+                    secz=secz,
+                    objha=ha,
+                    objdec=dec,
+                    tellat=lat,
+                    teltemp=sso_temp,
+                    telpres=sso_pres,
+                    telwvp=sso_wvp,
+                    telpa=telpa,
+                    ref_wl=5600.0,
                 )
                 adr_y = adr_corr[1] * 0.5 * float(bin_y)
                 all_ypos_flat -= adr_y
@@ -5191,7 +5584,10 @@ def generate_wifes_cube(
 
                 if print_progress:
                     sys.stdout.flush()
-                    sys.stdout.write("\r\r %d" % (ii / (numpy.ceil(nslits * subsample)) * 100.0) + "%")
+                    sys.stdout.write(
+                        "\r\r %d" % (ii / (numpy.ceil(nslits * subsample)) * 100.0)
+                        + "%"
+                    )
                     sys.stdout.flush()
                     if ii == int(numpy.ceil(nslits * subsample)) - 1:
                         sys.stdout.write("\n")
@@ -5224,7 +5620,7 @@ def generate_wifes_cube(
                 telpres=sso_pres,
                 telwvp=sso_wvp,
                 telpa=telpa,
-                ref_wl=5600.
+                ref_wl=5600.0,
             )
             adr_x = adr_corr[0]
             for j in range(0, ny):
@@ -5286,9 +5682,15 @@ def generate_wifes_cube(
 
     # All done, at last ! Now, let's save it all ...
     if subsample > 1:
-        flux_data_cube_tmp = blockwise_mean_3D(flux_data_cube_tmp, [subsample, subsample, 1])
-        var_data_cube_tmp = blockwise_mean_3D(var_data_cube_tmp, [subsample, subsample, 1])
-        dq_data_cube_tmp = blockwise_mean_3D(dq_data_cube_tmp, [subsample, subsample, 1])
+        flux_data_cube_tmp = blockwise_mean_3D(
+            flux_data_cube_tmp, [subsample, subsample, 1]
+        )
+        var_data_cube_tmp = blockwise_mean_3D(
+            var_data_cube_tmp, [subsample, subsample, 1]
+        )
+        dq_data_cube_tmp = blockwise_mean_3D(
+            dq_data_cube_tmp, [subsample, subsample, 1]
+        )
     outfits = pyfits.HDUList(f3)
     flux_data_cube_tmp = flux_data_cube_tmp.astype("float32", casting="same_kind")
     var_data_cube_tmp = var_data_cube_tmp.astype("float64", casting="same_kind")
@@ -5320,27 +5722,45 @@ def generate_wifes_cube(
             outfits[i + 1 + 2 * nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + 2 * nslits].header.set("NAXIS1", len(out_lambda))
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWWAVEM", kwwavemodel, "PyWiFeS: method for wavelength solution")
-    outfits[0].header.set("PYWWRMSE", kwwaverms, "PyWiFeS: Final RMSE of wavelength solution")
-    outfits[0].header.set("PYWARCN", kwwavenum, "PyWiFeS: number of arc exposures combined")
+    outfits[0].header.set(
+        "PYWWAVEM", kwwavemodel, "PyWiFeS: method for wavelength solution"
+    )
+    outfits[0].header.set(
+        "PYWWRMSE", kwwaverms, "PyWiFeS: Final RMSE of wavelength solution"
+    )
+    outfits[0].header.set(
+        "PYWARCN", kwwavenum, "PyWiFeS: number of arc exposures combined"
+    )
     outfits[0].header.set("PYWWIWPD", kwwiredeg, "PyWiFeS: wire_polydeg")
-    outfits[0].header.set("PYWWIREN", kwwirenum, "PyWiFeS: number of wire exposures combined")
+    outfits[0].header.set(
+        "PYWWIREN", kwwirenum, "PyWiFeS: number of wire exposures combined"
+    )
     outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
     outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")
-    outfits[0].header.set("PYWWVREF", wavelength_ref, "PyWiFeS: wavelength reference (air or vacuum)")
+    outfits[0].header.set(
+        "PYWWVREF", wavelength_ref, "PyWiFeS: wavelength reference (air or vacuum)"
+    )
     if subsample > 1:
-        outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor")
+        outfits[0].header.set(
+            "PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor"
+        )
     if wave_native:
         outfits[0].header.set("PYWWNONL", True, "PyWiFeS: non-linear wavelengths axis")
-        outfits.append(pyfits.ImageHDU(data=out_lambda, header=outfits[1].header, name="WAVELENGTH"))
+        outfits.append(
+            pyfits.ImageHDU(
+                data=out_lambda, header=outfits[1].header, name="WAVELENGTH"
+            )
+        )
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
 
 
 # ------------------------------------------------------------------------
-def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_pixels=False, debug=False):
+def generate_wifes_3dcube(
+    inimg, outimg, halfframe=False, taros=False, nan_bad_pixels=False, debug=False
+):
     """
     Convert multi-extension FITS datacube into a single three-dimensional FITS image.
 
@@ -5370,10 +5790,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     f = pyfits.open(inimg)
     # full frame or half
     if len(f) >= 76 or (
-        halfframe and (
-            (taros and len(f) >= 37)
-            or (not taros and len(f) >= 40)
-        )
+        halfframe and ((taros and len(f) >= 37) or (not taros and len(f) >= 40))
     ):
         ny, nlam = numpy.shape(f[1].data)
         if halfframe:
@@ -5442,8 +5859,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         crval1 = coord.ra.deg
         crval2 = coord.dec.deg
     except KeyError:
-        crval1 = 0.
-        crval2 = 0.
+        crval1 = 0.0
+        crval2 = 0.0
     crval3 = lam0
 
     # Set up a tangential projection
@@ -5452,7 +5869,11 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     if wave_ext:
         ctype3 = "PIXEL"
     else:
-        ctype3 = "WAVE" if "PYWWVREF" in f[1].header and f[1].header["PYWWVREF"] == "VACUUM" else "AWAV"
+        ctype3 = (
+            "WAVE"
+            if "PYWWVREF" in f[1].header and f[1].header["PYWWVREF"] == "VACUUM"
+            else "AWAV"
+        )
 
     # Coordinate transformations
     # Telescope angle
@@ -5506,10 +5927,12 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # save to data cube
     # DATA
-    cube_hdu = pyfits.PrimaryHDU(obj_cube_data.astype("float32", casting="same_kind"), header=f[0].header)
+    cube_hdu = pyfits.PrimaryHDU(
+        obj_cube_data.astype("float32", casting="same_kind"), header=f[0].header
+    )
     cube_hdu.scale("float32")
     # Add header info
-    cube_hdu.name = 'SCI'
+    cube_hdu.name = "SCI"
     cube_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     cube_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     cube_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")
@@ -5532,10 +5955,12 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     outfits = pyfits.HDUList([cube_hdu])
 
     # VARIANCE
-    var_hdu = pyfits.PrimaryHDU(obj_cube_var.astype("float64", casting="same_kind"), header=f[0].header)
+    var_hdu = pyfits.PrimaryHDU(
+        obj_cube_var.astype("float64", casting="same_kind"), header=f[0].header
+    )
     var_hdu.scale("float64")
     # Add header info
-    var_hdu.name = 'VAR'
+    var_hdu.name = "VAR"
     var_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     var_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     var_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")
@@ -5561,10 +5986,12 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     # trim data beyond range
     obj_cube_dq[obj_cube_dq > 32767] = 32767
     obj_cube_dq[obj_cube_dq < -32768] = -32768
-    dq_hdu = pyfits.PrimaryHDU(obj_cube_dq.astype("int16", casting="unsafe"), header=f[0].header)
+    dq_hdu = pyfits.PrimaryHDU(
+        obj_cube_dq.astype("int16", casting="unsafe"), header=f[0].header
+    )
     dq_hdu.scale("int16")
     # Add header info
-    dq_hdu.name = 'DQ'
+    dq_hdu.name = "DQ"
     dq_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     dq_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     dq_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")
@@ -5588,8 +6015,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # Pass along wavelength array, if present
     try:
-        wdata = f['WAVELENGTH'].data
-        whead = f['WAVELENGTH'].header
+        wdata = f["WAVELENGTH"].data
+        whead = f["WAVELENGTH"].header
         wext = pyfits.ImageHDU(data=wdata, header=whead, name="WAVELENGTH")
         outfits.append(wext)
     except KeyError:
@@ -5599,8 +6026,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # Pass along telluric spectrum, if present
     try:
-        tdata = f['TelluricModel'].data
-        thead = f['TelluricModel'].header
+        tdata = f["TelluricModel"].data
+        thead = f["TelluricModel"].header
         tellext = pyfits.ImageHDU(data=tdata, header=thead, name="TelluricModel")
         outfits.append(tellext)
     except KeyError:
@@ -5610,8 +6037,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # Pass along corrected extinction spectrum, if present
     try:
-        edata = f['Extinction'].data
-        ehead = f['Extinction'].header
+        edata = f["Extinction"].data
+        ehead = f["Extinction"].header
         ext_ext = pyfits.ImageHDU(data=edata, header=ehead, name="Extinction")
         outfits.append(ext_ext)
     except KeyError:
@@ -5621,10 +6048,15 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # SAVE IT
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    if "EQUINOX" in outfits[0].header and isinstance(outfits[0].header["EQUINOX"], str) \
-            and "J" in outfits[0].header["EQUINOX"]:
-        outfits[0].header["EQUINOX"] = (float(outfits[0].header["EQUINOX"].replace("J", "")),
-                                        "Equinox of coordinates")
+    if (
+        "EQUINOX" in outfits[0].header
+        and isinstance(outfits[0].header["EQUINOX"], str)
+        and "J" in outfits[0].header["EQUINOX"]
+    ):
+        outfits[0].header["EQUINOX"] = (
+            float(outfits[0].header["EQUINOX"].replace("J", "")),
+            "Equinox of coordinates",
+        )
     outfits.writeto(outimg, overwrite=True)
     f.close()
     return
