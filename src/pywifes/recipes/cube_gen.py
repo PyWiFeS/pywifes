@@ -1,9 +1,23 @@
 from astropy.io import fits as pyfits
+import json
+import numpy
 import os
 import datetime
-import pickle
 from pywifes import pywifes
 from pywifes.wifes_utils import get_associated_calib, get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
+
+def convert(x):
+    if hasattr(x, "tolist"):  # numpy arrays have this
+        return {"$array": x.tolist()}  # Make a tagged object
+    raise TypeError(x)
+
+
+def deconvert(x):
+    if len(x) == 1:  # Might be a tagged object...
+        key, value = next(iter(x.items()))  # Grab the tag and value
+        if key == "$array":  # If the tag is correct,
+            return numpy.array(value)  # cast back to array
+    return x
 
 
 # ------------------------------------------------------
@@ -107,14 +121,11 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                 arc_times = ["", ""]
                 for i in range(2):
                     local_wsol_out_fn_extra = os.path.join(
-                        gargs['out_dir_arm'], f"{local_arcs[i]}.wsol.fits_extra.pkl")
-                    with open(local_wsol_out_fn_extra, "rb") as f:
-                        try:
-                            f_pickled = pickle.load(f, protocol=2)
-                        except Exception:
-                            f_pickled = pickle.load(f)
+                        gargs['out_dir_arm'], f"{local_arcs[i]}.wsol.fits_extra.json")
+                    with open(local_wsol_out_fn_extra, "r") as f:
+                        f_jsoned = json.load(f, object_hook=deconvert)
                     f.close()
-                    arc_times[i] = f_pickled[-1][0]
+                    arc_times[i] = f_jsoned[-1][0]
 
                 # Make sure the Science is between the arcs:
                 t0 = datetime.datetime(

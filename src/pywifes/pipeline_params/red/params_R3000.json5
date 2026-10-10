@@ -539,7 +539,7 @@
             "args": {
                 // Format for flux calibration input.
                 // Options:
-                // - "mode": "pywifes",  // Default. Pickle format for input flux calibration file.
+                // - "mode": "pywifes",  // Default. JSON format for input flux calibration file.
                 // - "mode": "iraf",  // FITS image format for input flux calibration file.
                 //
                 // Additional user options.

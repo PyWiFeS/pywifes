@@ -2,12 +2,12 @@ from __future__ import print_function
 from astropy.io import fits as pyfits
 import datetime
 from itertools import cycle
+import json
 import math
 import matplotlib.pyplot as plt
 import multiprocessing
 import numpy
 import os
-import pickle
 import re
 import scipy.interpolate
 import scipy.optimize as op
@@ -16,18 +16,14 @@ from pywifes import optical_model as om
 from pywifes import quality_plots as qp
 from pywifes.mpfit import mpfit
 from pywifes.wifes_metadata import __version__, metadata_dir
-from pywifes.wifes_utils import arguments, is_halfframe, is_taros
+from pywifes.wifes_utils import arguments, convert_to_JSON, deconvert_from_JSON, is_halfframe, is_taros
 
 from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
 
+
 # ------------------------------------------------------------------------
-f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
-try:
-    wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
-except Exception:
-    wifes_metadata = pickle.load(
-        f0
-    )  # Python 2.7 can't handle fix_imports or encoding=latin
+f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.json"), "r")
+wifes_metadata = json.load(f0, object_hook=deconvert_from_JSON)
 f0.close()
 base_wsols = wifes_metadata["baseline_wsols"]
 all_ref_lines = wifes_metadata["ref_linelists"]
@@ -195,7 +191,7 @@ def _mpfit_gauss_line(packaged_args):
     fa = {"x": xfit, "y": yfit}
     parinfo = [
         {
-            "value": yfit[xfit == guess_center],
+            "value": yfit[xfit == guess_center].item(),
             "fixed": 0,
             "limited": [1, 0],
             "limits": [0.0, 0.0],
@@ -922,7 +918,7 @@ def _xcorr_shift_all(packaged_args):
         # Finally, associate each identified line
         # with appropriate wavelength.
         if cond1 and cond2:
-            loc = int(numpy.where(x_obs == item)[0])
+            loc = int(numpy.where(x_obs == item)[0].item())
             if (
                 len(
                     final_lam_bes[loc - 2:loc + 3][
@@ -1325,8 +1321,8 @@ def save_found_lines(
             "ypoly": ypoly,
         }
         fitted_lines.append(new_dict)
-    f = open(out_file, "wb")
-    pickle.dump(fitted_lines, f)
+    f = open(out_file, "w")
+    json.dump(fitted_lines, f, default=convert_to_JSON)
     f.close()
     return
 
@@ -1976,7 +1972,7 @@ def derive_wifes_optical_wave_solution(
             )
         )
         om.saveData(
-            outfn + "_extra.pkl",
+            outfn + "_extra.json",
             grating,
             params,
             newlines,
